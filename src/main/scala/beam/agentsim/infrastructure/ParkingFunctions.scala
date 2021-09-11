@@ -171,16 +171,14 @@ class ParkingFunctions[GEO: GeoLevel](
     inquiry: ParkingInquiry,
     preferredParkingTypes: Set[ParkingType]
   ): Boolean = {
-    val hasAvailability: Boolean = parkingZones(zone.parkingZoneId).stallsAvailable > 0
 
-    val validParkingType: Boolean = preferredParkingTypes.contains(zone.parkingType)
-
+    val hasAvailability = parkingZones(zone.parkingZoneId).stallsAvailable > 0
+    val validParkingType = preferredParkingTypes.contains(zone.parkingType)
     val isValidTime = inquiry.beamVehicle.forall(vehicle =>
       zone.timeRestrictions
         .get(vehicle.beamVehicleType.vehicleCategory)
         .forall(_.contains(inquiry.destinationUtm.time % (24 * 3600)))
     )
-
     val isValidVehicleManager = inquiry.beamVehicle.forall { vehicle =>
       zone.reservedFor.managerType == VehicleManager.TypeEnum.Default || zone.reservedFor.managerId == vehicle.vehicleManagerId.get
     }

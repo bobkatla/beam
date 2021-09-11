@@ -53,6 +53,7 @@ object ParkingInquiry extends LazyLogging {
     val values: immutable.IndexedSeq[ParkingActivityType] = findValues
 
     case object Charge extends ParkingActivityType
+    case object FastCharge extends ParkingActivityType
     case object Init extends ParkingActivityType
     case object Wherever extends ParkingActivityType
     case object Home extends ParkingActivityType
@@ -62,12 +63,13 @@ object ParkingInquiry extends LazyLogging {
 
   private def activityTypeStringToEnum(activityType: String): ParkingActivityType = {
     activityType.toLowerCase match {
-      case "home"      => ParkingActivityType.Home
-      case "init"      => ParkingActivityType.Init
-      case "work"      => ParkingActivityType.Work
-      case "secondary" => ParkingActivityType.Secondary
-      case "charge"    => ParkingActivityType.Charge
-      case "wherever"  => ParkingActivityType.Wherever
+      case "home"       => ParkingActivityType.Home
+      case "init"       => ParkingActivityType.Init
+      case "work"       => ParkingActivityType.Work
+      case "secondary"  => ParkingActivityType.Secondary
+      case "charge"     => ParkingActivityType.Charge
+      case "fastcharge" => ParkingActivityType.FastCharge
+      case "wherever"   => ParkingActivityType.Wherever
       case otherType =>
         logger.debug(s"This Parking Activity Type ($otherType) has not been defined")
         ParkingActivityType.Wherever
