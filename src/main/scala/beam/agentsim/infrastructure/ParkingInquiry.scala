@@ -41,7 +41,7 @@ case class ParkingInquiry(
   def isChargingRequestOrEV: Boolean = {
     beamVehicle match {
       case Some(vehicle) => vehicle.isPHEV || vehicle.isBEV
-      case _             => activityType == ParkingActivityType.Charge
+      case _             => activityType == ParkingActivityType.Charge || activityType == ParkingActivityType.FastCharge
     }
   }
 }
