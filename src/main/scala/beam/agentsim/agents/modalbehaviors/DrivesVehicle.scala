@@ -240,7 +240,6 @@ trait DrivesVehicle[T <: DrivingData] extends BeamAgent[T] with Stash with Expon
           eventBuilderActor,
           beamServices.beamCustomizationAPI.beamVehicleAfterUseFuelHook
         )
-
       currentBeamVehicle.spaceTime = geo.wgs2Utm(currentLeg.travelPath.endPoint)
 
       var nbPassengers = data.passengerSchedule.schedule(currentLeg).riders.size
@@ -320,15 +319,6 @@ trait DrivesVehicle[T <: DrivingData] extends BeamAgent[T] with Stash with Expon
         currentBeamVehicle.primaryFuelLevelInJoules,
         currentBeamVehicle.secondaryFuelLevelInJoules,
         tollOnCurrentLeg,
-        /*
-          fuelConsumed.fuelConsumptionData.map(x=>(x.linkId, x.linkNumberOfLanes)),
-          fuelConsumed.fuelConsumptionData.map(x=>(x.linkId, x.freeFlowSpeed)),
-          fuelConsumed.primaryLoggingData.map(x=>(x.linkId, x.gradientOption)),
-          fuelConsumed.fuelConsumptionData.map(x=>(x.linkId, x.linkLength)),
-          fuelConsumed.primaryLoggingData.map(x=>(x.linkId, x.rate)),
-          fuelConsumed.primaryLoggingData.map(x=>(x.linkId, x.consumption)),
-          fuelConsumed.secondaryLoggingData.map(x=>(x.linkId, x.rate)),
-          fuelConsumed.secondaryLoggingData.map(x=>(x.linkId, x.consumption))*/
         riders
       )
 
@@ -339,7 +329,26 @@ trait DrivesVehicle[T <: DrivingData] extends BeamAgent[T] with Stash with Expon
         if (data.hasParkingBehaviors) {
           holdTickAndTriggerId(tick, triggerId)
           log.debug(s"state(DrivesVehicle.Driving) $id is going to ReadyToChooseParking")
-          goto(ReadyToChooseParking) using data
+
+          // todo rrp
+          val updatedData = data match {
+            case personData: BasePersonData =>
+              val refuelNeeded = currentBeamVehicle.isRefuelNeeded(
+                beamScenario.beamConfig.beam.agentsim.agents.vehicles.rechargeRequiredThresholdInMeters,
+                beamScenario.beamConfig.beam.agentsim.agents.vehicles.noRechargeThresholdInMeters
+              )
+              val checkForEnRouteCharging = {
+                !personData.enRouteCharging && // not already on en-route charging
+                personData.restOfCurrentTrip.head.asDriver && // agent is driving
+                (currentBeamVehicle.isBEV || currentBeamVehicle.isPHEV) && // vehicle is electric
+                refuelNeeded // needs recharging
+              }
+              personData.copy(enRouteCharging = checkForEnRouteCharging)
+            case _ =>
+              data
+          }
+
+          goto(ReadyToChooseParking) using updatedData
             .withCurrentLegPassengerScheduleIndex(data.currentLegPassengerScheduleIndex + 1)
             .asInstanceOf[T]
         } else {
@@ -365,7 +374,7 @@ trait DrivesVehicle[T <: DrivingData] extends BeamAgent[T] with Stash with Expon
         var waitForConnectionToChargingPoint = false
         if (data.hasParkingBehaviors) {
           // charge vehicle
-          if (currentBeamVehicle.isBEV | currentBeamVehicle.isPHEV) {
+          if (currentBeamVehicle.isBEV || currentBeamVehicle.isPHEV) {
             currentBeamVehicle.reservedStall.foreach { stall: ParkingStall =>
               stall.chargingPointType match {
                 case Some(_) =>
@@ -629,6 +638,7 @@ trait DrivesVehicle[T <: DrivingData] extends BeamAgent[T] with Stash with Expon
           .head
           ._1
         val endTime = tick + beamLeg.duration
+
         goto(Driving) using LiterallyDrivingData(data, endTime, Some(tick))
           .asInstanceOf[T] replying CompletionNotice(
           triggerId,

@@ -12,6 +12,7 @@ import beam.agentsim.agents.vehicles.VehicleProtocol.StreetVehicle
 import beam.agentsim.agents.vehicles.{BeamVehicle, PassengerSchedule, VehicleManager}
 import beam.agentsim.events.{LeavingParkingEvent, ParkingEvent, SpaceTime}
 import beam.agentsim.infrastructure.ChargingNetworkManager._
+import beam.agentsim.infrastructure.ParkingInquiry.ParkingActivityType
 import beam.agentsim.infrastructure.{ParkingInquiry, ParkingInquiryResponse, ParkingStall}
 import beam.agentsim.scheduler.BeamAgentScheduler.{CompletionNotice, ScheduleTrigger}
 import beam.agentsim.scheduler.Trigger.TriggerWithId
@@ -90,37 +91,44 @@ object ChoosesParking {
 
 trait ChoosesParking extends {
   this: PersonAgent => // Self type restricts this trait to only mix into a PersonAgent
-  onTransition { case ReadyToChooseParking -> ChoosingParkingSpot =>
-    val personData = stateData.asInstanceOf[BasePersonData]
 
-    val firstLeg = personData.restOfCurrentTrip.head
-    val lastLeg =
-      personData.restOfCurrentTrip.takeWhile(_.beamVehicleId == firstLeg.beamVehicleId).last
+  private def createRegularParkingInquiry(data: BasePersonData): ParkingInquiry = {
+    val firstLeg = data.restOfCurrentTrip.head
+    val lastLeg = data.restOfCurrentTrip.takeWhile(_.beamVehicleId == firstLeg.beamVehicleId).last.beamLeg
+    val destinationUtm = SpaceTime(beamServices.geo.wgs2Utm(lastLeg.travelPath.endPoint.loc), lastLeg.endTime)
+    val activityType = nextActivity(data).get.getType
+    val reservedFor = VehicleManager.getReservedFor(currentBeamVehicle.vehicleManagerId.get).get
+    val remainingTripData = calculateRemainingTripData(data)
+    val parkingDuration = nextActivity(data).map(_.getEndTime - lastLeg.endTime).getOrElse(0.0)
 
-    val parkingDuration: Double = {
-      for {
-        act <- nextActivity(personData)
-        lastLegEndTime = lastLeg.beamLeg.endTime.toDouble
-      } yield act.getEndTime - lastLegEndTime
-    }.getOrElse(0.0)
-    val destinationUtm = beamServices.geo.wgs2Utm(lastLeg.beamLeg.travelPath.endPoint.loc)
-
-    // in meter (the distance that should be considered as buffer for range estimation
-
-    val nextActivityType = nextActivity(personData).get.getType
-
-    val remainingTripData = calculateRemainingTripData(personData)
-
-    val parkingInquiry = ParkingInquiry.init(
-      SpaceTime(destinationUtm, lastLeg.beamLeg.endTime),
-      nextActivityType,
-      VehicleManager.getReservedFor(currentBeamVehicle.vehicleManagerId.get).get,
-      Some(this.currentBeamVehicle),
+    ParkingInquiry.init(
+      destinationUtm,
+      activityType,
+      reservedFor,
+      Some(currentBeamVehicle),
       remainingTripData,
       attributes.valueOfTime,
       parkingDuration,
       triggerId = getCurrentTriggerIdOrGenerate
     )
+  }
+
+  private def createEnRouteChargingInquiry: ParkingInquiry = ParkingInquiry(
+    destinationUtm = currentBeamVehicle.spaceTime,
+    activityType = ParkingActivityType.FastCharge,
+    reservedFor = VehicleManager.getReservedFor(currentBeamVehicle.vehicleManagerId.get).get,
+    beamVehicle = Some(currentBeamVehicle),
+    valueOfTime = attributes.valueOfTime,
+    triggerId = getCurrentTriggerIdOrGenerate
+  )
+
+  onTransition { case ReadyToChooseParking -> ChoosingParkingSpot =>
+    val data = stateData.asInstanceOf[BasePersonData]
+    val parkingInquiry =
+      if (data.enRouteCharging)
+        createEnRouteChargingInquiry
+      else
+        createRegularParkingInquiry(data)
 
     if (parkingInquiry.isChargingRequestOrEV)
       chargingNetworkManager ! parkingInquiry
@@ -182,10 +190,10 @@ trait ChoosesParking extends {
           currentBeamVehicle,
           triggerId
         )
-        goto(ReleasingChargingPoint) using data
+        goto(ReleasingChargingPoint) using data.copy(enRouteCharging = false)
       } else {
         handleReleasingParkingSpot(tick, currentBeamVehicle, None, id, parkingManager, eventsManager, triggerId)
-        goto(WaitingToDrive) using data
+        goto(WaitingToDrive) using data.copy(enRouteCharging = false)
       }
     case Event(StateTimeout, data) =>
       val stall = currentBeamVehicle.stall.get
@@ -255,22 +263,28 @@ trait ChoosesParking extends {
         val futureVehicle2StallResponse = router ? veh2StallRequest
 
         // get walk route from stall to destination, note we give a dummy start time and update later based on drive time to stall
+        val vehicles = data match {
+          case data: BasePersonData if data.enRouteCharging =>
+            Vector(carStreetVeh, bodyStreetVeh)
+          case _ =>
+            Vector(
+              StreetVehicle(
+                body.id,
+                body.beamVehicleType.id,
+                SpaceTime(stall.locationUTM, currentPoint.time),
+                WALK,
+                asDriver = true,
+                needsToCalculateCost = false
+              )
+            )
+        }
         val futureStall2DestinationResponse = router ? RoutingRequest(
           stall.locationUTM,
           beamServices.geo.wgs2Utm(finalPoint.loc),
           currentPoint.time,
           withTransit = false,
           Some(id),
-          Vector(
-            StreetVehicle(
-              body.id,
-              body.beamVehicleType.id,
-              SpaceTime(stall.locationUTM, currentPoint.time),
-              WALK,
-              asDriver = true,
-              needsToCalculateCost = false
-            )
-          ),
+          vehicles,
           Some(attributes),
           triggerId = getCurrentTriggerIdOrGenerate
         )
