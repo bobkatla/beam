@@ -6,16 +6,14 @@ import beam.agentsim.Resource.{NotifyVehicleIdle, ReleaseParkingStall}
 import beam.agentsim.agents.BeamAgent
 import beam.agentsim.agents.PersonAgent._
 import beam.agentsim.agents.modalbehaviors.DrivesVehicle._
-import beam.agentsim.agents.parking.ChoosesParking.{handleUseParkingSpot, ConnectingToChargingPoint}
+import beam.agentsim.agents.parking.ChoosesParking._
 import beam.agentsim.agents.ridehail.RideHailAgent._
 import beam.agentsim.agents.vehicles.AccessErrorCodes.VehicleFullError
 import beam.agentsim.agents.vehicles.BeamVehicle.{BeamVehicleState, FuelConsumed}
 import beam.agentsim.agents.vehicles.VehicleProtocol._
 import beam.agentsim.agents.vehicles._
-import beam.agentsim.events.RefuelSessionEvent.NotApplicable
 import beam.agentsim.events._
 import beam.agentsim.infrastructure.ChargingNetworkManager._
-import beam.agentsim.infrastructure.ParkingStall
 import beam.agentsim.scheduler.BeamAgentScheduler.{CompletionNotice, ScheduleTrigger}
 import beam.agentsim.scheduler.Trigger.TriggerWithId
 import beam.agentsim.scheduler.{HasTriggerId, Trigger}
@@ -362,42 +360,13 @@ trait DrivesVehicle[T <: DrivingData] extends BeamAgent[T] with Stash with Expon
           )
         }
       } else {
-        var waitForConnectionToChargingPoint = false
-        if (data.hasParkingBehaviors) {
-          // charge vehicle
-          if (currentBeamVehicle.isBEV | currentBeamVehicle.isPHEV) {
-            currentBeamVehicle.reservedStall.foreach { stall: ParkingStall =>
-              stall.chargingPointType match {
-                case Some(_) =>
-                  log.debug("Sending ChargingPlugRequest to chargingNetworkManager at {}", tick)
-                  chargingNetworkManager ! ChargingPlugRequest(
-                    tick,
-                    currentBeamVehicle,
-                    stall,
-                    Id.createPersonId(id),
-                    triggerId,
-                    shiftStatus = NotApplicable
-                  )
-                  waitForConnectionToChargingPoint = true
-                case None => // this should only happen rarely
-                  log.debug(
-                    "Charging request by vehicle {} ({}) on a spot without a charging point (parkingZoneId: {}). This is not handled yet!",
-                    currentBeamVehicle.id,
-                    if (currentBeamVehicle.isBEV) "BEV" else if (currentBeamVehicle.isPHEV) "PHEV" else "non-electric",
-                    stall.parkingZoneId
-                  )
-              }
-            }
-          }
-        }
         holdTickAndTriggerId(tick, triggerId)
-        if (waitForConnectionToChargingPoint) {
+        if (data.hasParkingBehaviors) {
           log.debug(s"state(DrivesVehicle.Driving) $id is going to ConnectingToChargingPoint")
           goto(ConnectingToChargingPoint) using data.asInstanceOf[T]
         } else {
-          handleUseParkingSpot(tick, currentBeamVehicle, id, geo, eventsManager)
-          self ! LastLegPassengerSchedule(triggerId)
           log.debug(s"state(DrivesVehicle.Driving) $id is going to DrivingInterrupted with $triggerId")
+          self ! LastLegPassengerSchedule(triggerId)
           goto(DrivingInterrupted) using data.asInstanceOf[T]
         }
       }
@@ -426,16 +395,6 @@ trait DrivesVehicle[T <: DrivingData] extends BeamAgent[T] with Stash with Expon
         data.currentLegPassengerScheduleIndex,
         triggerId
       )
-
-    case ev @ Event(StartingRefuelSession(_, _), _) =>
-      log.debug("state(DrivesVehicle.Driving.StartingRefuelSession): {}", ev)
-      stay()
-    case ev @ Event(UnhandledVehicle(_, _, _), _) =>
-      log.error("state(DrivesVehicle.Driving.UnhandledVehicle): {}", ev)
-      stay()
-    case ev @ Event(WaitingToCharge(_, _, _), _) =>
-      log.error("state(DrivesVehicle.Driving.WaitingInLine): {}. This probably should not happen", ev)
-      stay()
   }
 
   when(DrivingInterrupted) {
@@ -532,9 +491,6 @@ trait DrivesVehicle[T <: DrivingData] extends BeamAgent[T] with Stash with Expon
     case ev @ Event(Interrupt(_, _, _), _) =>
       log.debug("state(DrivesVehicle.DrivingInterrupted): {}", ev)
       stash()
-      stay
-    case ev @ Event(StartingRefuelSession(_, _), _) =>
-      log.debug("state(DrivesVehicle.DrivingInterrupted): {}", ev)
       stay
     case _ @Event(LastLegPassengerSchedule(triggerId), data) =>
       log.debug(s"state(DrivesVehicle.DrivingInterrupted): LastLegPassengerSchedule with $triggerId for $id")

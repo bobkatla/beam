@@ -10,6 +10,7 @@ import beam.agentsim.agents.modalbehaviors.DrivesVehicle.StartLegTrigger
 import beam.agentsim.agents.parking.ChoosesParking._
 import beam.agentsim.agents.vehicles.VehicleProtocol.StreetVehicle
 import beam.agentsim.agents.vehicles.{BeamVehicle, PassengerSchedule, VehicleManager}
+import beam.agentsim.events.RefuelSessionEvent.NotApplicable
 import beam.agentsim.events.{LeavingParkingEvent, ParkingEvent, SpaceTime}
 import beam.agentsim.infrastructure.ChargingNetworkManager._
 import beam.agentsim.infrastructure.{ParkingInquiry, ParkingInquiryResponse, ParkingStall}
@@ -20,6 +21,7 @@ import beam.router.Modes.BeamMode.WALK
 import beam.router.model.{EmbodiedBeamLeg, EmbodiedBeamTrip}
 import beam.sim.common.GeoUtils
 import beam.utils.logging.pattern.ask
+import com.typesafe.scalalogging.LazyLogging
 import org.matsim.api.core.v01.Id
 import org.matsim.api.core.v01.events.PersonLeavesVehicleEvent
 import org.matsim.core.api.experimental.events.EventsManager
@@ -30,7 +32,7 @@ import scala.language.postfixOps
 /**
   * BEAM
   */
-object ChoosesParking {
+object ChoosesParking extends LazyLogging {
   case object ChoosingParkingSpot extends BeamAgentState
   case object ReleasingParkingSpot extends BeamAgentState
   case object ReleasingChargingPoint extends BeamAgentState
@@ -90,42 +92,54 @@ object ChoosesParking {
 
 trait ChoosesParking extends {
   this: PersonAgent => // Self type restricts this trait to only mix into a PersonAgent
-  onTransition { case ReadyToChooseParking -> ChoosingParkingSpot =>
-    val personData = stateData.asInstanceOf[BasePersonData]
+  onTransition {
+    case ReadyToChooseParking -> ChoosingParkingSpot =>
+      val personData = stateData.asInstanceOf[BasePersonData]
 
-    val firstLeg = personData.restOfCurrentTrip.head
-    val lastLeg =
-      personData.restOfCurrentTrip.takeWhile(_.beamVehicleId == firstLeg.beamVehicleId).last
+      val firstLeg = personData.restOfCurrentTrip.head
+      val lastLeg =
+        personData.restOfCurrentTrip.takeWhile(_.beamVehicleId == firstLeg.beamVehicleId).last
 
-    val parkingDuration: Double = {
-      for {
-        act <- nextActivity(personData)
-        lastLegEndTime = lastLeg.beamLeg.endTime.toDouble
-      } yield act.getEndTime - lastLegEndTime
-    }.getOrElse(0.0)
-    val destinationUtm = beamServices.geo.wgs2Utm(lastLeg.beamLeg.travelPath.endPoint.loc)
+      val parkingDuration: Double = {
+        for {
+          act <- nextActivity(personData)
+          lastLegEndTime = lastLeg.beamLeg.endTime.toDouble
+        } yield act.getEndTime - lastLegEndTime
+      }.getOrElse(0.0)
+      val destinationUtm = beamServices.geo.wgs2Utm(lastLeg.beamLeg.travelPath.endPoint.loc)
 
-    // in meter (the distance that should be considered as buffer for range estimation
+      // in meter (the distance that should be considered as buffer for range estimation
 
-    val nextActivityType = nextActivity(personData).get.getType
+      val nextActivityType = nextActivity(personData).get.getType
 
-    val remainingTripData = calculateRemainingTripData(personData)
+      val remainingTripData = calculateRemainingTripData(personData)
 
-    val parkingInquiry = ParkingInquiry.init(
-      SpaceTime(destinationUtm, lastLeg.beamLeg.endTime),
-      nextActivityType,
-      VehicleManager.getReservedFor(currentBeamVehicle.vehicleManagerId.get).get,
-      Some(this.currentBeamVehicle),
-      remainingTripData,
-      attributes.valueOfTime,
-      parkingDuration,
-      triggerId = getCurrentTriggerIdOrGenerate
-    )
+      val parkingInquiry = ParkingInquiry.init(
+        SpaceTime(destinationUtm, lastLeg.beamLeg.endTime),
+        nextActivityType,
+        VehicleManager.getReservedFor(currentBeamVehicle.vehicleManagerId.get).get,
+        Some(this.currentBeamVehicle),
+        remainingTripData,
+        attributes.valueOfTime,
+        parkingDuration,
+        triggerId = getCurrentTriggerIdOrGenerate
+      )
 
-    if (parkingInquiry.isChargingRequestOrEV)
-      chargingNetworkManager ! parkingInquiry
-    else
-      parkingManager ! parkingInquiry
+      if (parkingInquiry.isChargingRequestOrEV)
+        chargingNetworkManager ! parkingInquiry
+      else
+        parkingManager ! parkingInquiry
+
+    case Driving -> ConnectingToChargingPoint =>
+      logger.debug("Sending ChargingPlugRequest to chargingNetworkManager at {}", _currentTick.get)
+      handleUseParkingSpot(_currentTick.get, currentBeamVehicle, id, geo, eventsManager)
+      chargingNetworkManager ! ChargingPlugRequest(
+        _currentTick.get,
+        currentBeamVehicle,
+        Id.createPersonId(this.id),
+        _currentTriggerId.get,
+        shiftStatus = NotApplicable
+      )
   }
 
   when(ConnectingToChargingPoint) {
@@ -136,6 +150,10 @@ trait ChoosesParking extends {
       goto(DrivingInterrupted) using data
     case _ @Event(WaitingToCharge(tick, vehicleId, triggerId), data) =>
       log.debug(s"Vehicle $vehicleId is waiting in line and it is now handled by the CNM at $tick")
+      self ! LastLegPassengerSchedule(triggerId)
+      goto(DrivingInterrupted) using data
+    case _ @Event(UnhandledVehicle(tick, vehicleId, triggerId), data) =>
+      logger.debug(s"Vehicle $vehicleId cannot be handled by the CNM at $tick")
       self ! LastLegPassengerSchedule(triggerId)
       goto(DrivingInterrupted) using data
   }

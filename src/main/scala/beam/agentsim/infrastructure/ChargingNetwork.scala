@@ -84,12 +84,12 @@ class ChargingNetwork[GEO: GeoLevel](chargingZones: Map[Id[ParkingZoneId], Parki
     request: ChargingPlugRequest,
     theSender: ActorRef
   ): Option[ChargingVehicle] = {
-    lookupStation(request.stall.parkingZoneId)
+    lookupStation(request.vehicle.stall.get.parkingZoneId)
       .map(
         _.connect(
           request.tick,
           request.vehicle,
-          request.stall,
+          request.vehicle.stall.get,
           request.personId,
           request.shiftStatus,
           request.shiftDuration,

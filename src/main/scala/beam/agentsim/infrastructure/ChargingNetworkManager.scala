@@ -1,6 +1,5 @@
 package beam.agentsim.infrastructure
 
-import akka.actor.Status.Failure
 import akka.actor.{ActorLogging, ActorRef, Cancellable, Props}
 import akka.pattern.pipe
 import akka.util.Timeout
@@ -156,11 +155,13 @@ class ChargingNetworkManager(
       }
       sender ! CompletionNotice(triggerId)
 
-    case request @ ChargingPlugRequest(tick, vehicle, stall, _, triggerId, _, _) =>
+    case request @ ChargingPlugRequest(tick, vehicle, _, triggerId, _, _) =>
       log.debug(s"ChargingPlugRequest received for vehicle $vehicle at $tick and stall ${vehicle.stall}")
-      if (vehicle.isBEV || vehicle.isPHEV) {
+      val stallMaybe = vehicle.stall orElse (vehicle.reservedStall)
+      if (stallMaybe.isDefined && stallMaybe.get.chargingPointType.isDefined && (vehicle.isBEV || vehicle.isPHEV)) {
         // connecting the current vehicle
-        getAppropriateChargingNetwork(stall.reservedFor.managerId).processChargingPlugRequest(request, sender()) map {
+        getAppropriateChargingNetwork(stallMaybe.get.reservedFor.managerId)
+          .processChargingPlugRequest(request, sender()) map {
           case chargingVehicle if chargingVehicle.chargingStatus.last.status == WaitingAtStation =>
             log.debug(
               s"Vehicle $vehicle is moved to waiting line at $tick in station ${chargingVehicle.chargingStation}, " +
@@ -174,9 +175,13 @@ class ChargingNetworkManager(
             handleStartCharging(tick, chargingVehicle, triggerId = triggerId)
         }
       } else {
-        sender() ! Failure(
-          new RuntimeException(s"$vehicle is not a BEV/PHEV vehicle. Request sent by agent ${sender.path.name}")
+        logger.debug(
+          "Charging request by vehicle {} ({}) at stall {}. This is not handled yet!",
+          vehicle.id,
+          if (vehicle.isBEV) "BEV" else if (vehicle.isPHEV) "PHEV" else "non-electric",
+          stallMaybe
         )
+        sender() ! UnhandledVehicle(tick + parallelismWindow, vehicle.id, triggerId)
       }
 
     case ChargingUnplugRequest(tick, vehicle, triggerId) =>
@@ -201,7 +206,6 @@ class ChargingNetworkManager(
                   self ! ChargingPlugRequest(
                     tick + parallelismWindow,
                     newChargingVehicle.vehicle,
-                    newChargingVehicle.stall,
                     newChargingVehicle.personId,
                     triggerId,
                     newChargingVehicle.shiftStatus,
@@ -397,7 +401,6 @@ object ChargingNetworkManager extends LazyLogging {
   case class ChargingPlugRequest(
     tick: Int,
     vehicle: BeamVehicle,
-    stall: ParkingStall,
     personId: Id[Person],
     triggerId: Long,
     shiftStatus: ShiftStatus = NotApplicable,
