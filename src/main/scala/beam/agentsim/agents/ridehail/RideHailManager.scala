@@ -384,7 +384,7 @@ class RideHailManager(
   var requestedRideHail: Int = 0
   var servedRideHail: Int = 0
 
-  override def postStop: Unit = {
+  override def postStop(): Unit = {
     log.info("postStop")
     log.info(s"requestedRideHail: $requestedRideHail")
     log.info(s"servedRideHail: $servedRideHail")
@@ -1800,7 +1800,7 @@ class RideHailManager(
             rideHailAgent2CustomerResponse.requestId,
             None,
             isEmbodyWithCurrentTravelTime = false,
-            triggerId
+            triggerId = triggerId
           )
 
         ridehailManagerCustomizationAPI.processVehicleLocationUpdateAtEndOfContinueRepositioningHook(
