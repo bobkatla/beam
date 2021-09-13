@@ -851,22 +851,14 @@ class RideHailAgent(
       log.debug("state(RideHailingAgent.Refueling.EndingRefuelSession): {}, Vehicle ID: {}", ev, vehicle.id)
       if (debugEnabled) outgoingMessages += ev
       handleEndRefuel(tick, energyCharged, triggerId)
-      if (isCurrentlyOnShift && !needsToEndShift) {
-        goto(Idle)
-      } else {
-        goto(Offline)
-      }
+      goto(nextStateFromRefueling)
     case ev @ Event(UnhandledVehicle(tick, _, triggerId), _) =>
       updateLatestObservedTick(tick)
       log.debug("state(RideHailingAgent.Refueling.UnhandledVehicle): {}, Vehicle ID: {}", ev, vehicle.id)
       if (debugEnabled) outgoingMessages += ev
       handleEndRefuel(tick, 0.0, triggerId)
-      if (isCurrentlyOnShift && !needsToEndShift) {
-        goto(Idle)
-      } else {
-        goto(Offline)
-      }
-    case ev @ Event(StartingRefuelSession(tick, _), _) =>
+      goto(nextStateFromRefueling)
+    case ev @ Event(StartingRefuelSession(_, _), _) =>
       log.debug("state(RideHailAgent.Refueling.StartingRefuelSession): {}; Vehicle ID: {}", ev, vehicle.id)
       stay
     case ev @ Event(reply @ WaitingToCharge(_, _, _), data) =>
@@ -875,7 +867,7 @@ class RideHailAgent(
       handleWaitingLineReply(reply.triggerId, data)
     case ev @ Event(UnhandledVehicle(_, _, _), _) =>
       log.debug(s"state(RideHailingAgent.Refueling.UnhandledVehicle): $ev; Vehicle ID: ${vehicle.id}")
-      stay
+      goto(nextStateFromRefueling)
   }
   when(RefuelingInterrupted) {
     case Event(Resume(_), _) =>
@@ -887,6 +879,14 @@ class RideHailAgent(
   }
 
   override def logPrefix(): String = s"RideHailAgent $id: "
+
+  def nextStateFromRefueling: BeamAgentState = {
+    if (isCurrentlyOnShift && !needsToEndShift) {
+      Idle
+    } else {
+      Offline
+    }
+  }
 
   def scheduleStartLegIfFeasible(passengerSchedule: PassengerSchedule, nextLeg: BeamLeg): Vector[ScheduleTrigger] = {
     if (passengerSchedule.schedule.lastKey.endTime > lastTickOfSimulation) {
