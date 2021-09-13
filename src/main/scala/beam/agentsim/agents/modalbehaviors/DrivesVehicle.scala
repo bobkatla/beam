@@ -330,7 +330,6 @@ trait DrivesVehicle[T <: DrivingData] extends BeamAgent[T] with Stash with Expon
           holdTickAndTriggerId(tick, triggerId)
           log.debug(s"state(DrivesVehicle.Driving) $id is going to ReadyToChooseParking")
 
-          // todo rrp
           val updatedData = data match {
             case personData: BasePersonData =>
               val refuelNeeded = currentBeamVehicle.isRefuelNeeded(

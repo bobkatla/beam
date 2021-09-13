@@ -93,8 +93,7 @@ trait ChoosesParking extends {
   this: PersonAgent => // Self type restricts this trait to only mix into a PersonAgent
 
   private def createRegularParkingInquiry(data: BasePersonData): ParkingInquiry = {
-    val firstLeg = data.restOfCurrentTrip.head
-    val lastLeg = data.restOfCurrentTrip.takeWhile(_.beamVehicleId == firstLeg.beamVehicleId).last.beamLeg
+    val lastLeg = data.restOfCurrentTrip.takeWhile(_.beamVehicleId == currentBeamVehicle.id).last.beamLeg
     val destinationUtm = SpaceTime(beamServices.geo.wgs2Utm(lastLeg.travelPath.endPoint.loc), lastLeg.endTime)
     val activityType = nextActivity(data).get.getType
     val reservedFor = VehicleManager.getReservedFor(currentBeamVehicle.vehicleManagerId.get).get
@@ -113,20 +112,27 @@ trait ChoosesParking extends {
     )
   }
 
-  private def createEnRouteChargingInquiry: ParkingInquiry = ParkingInquiry(
-    destinationUtm = currentBeamVehicle.spaceTime,
-    activityType = ParkingActivityType.FastCharge,
-    reservedFor = VehicleManager.getReservedFor(currentBeamVehicle.vehicleManagerId.get).get,
-    beamVehicle = Some(currentBeamVehicle),
-    valueOfTime = attributes.valueOfTime,
-    triggerId = getCurrentTriggerIdOrGenerate
-  )
+  private def createEnRouteChargingInquiry(data: BasePersonData): ParkingInquiry = {
+    val vehicleTrip = data.restOfCurrentTrip.takeWhile(_.beamVehicleId == currentBeamVehicle.id)
+    val middleLeg = vehicleTrip(vehicleTrip.length / 2).beamLeg
+    val destinationUtm = SpaceTime(beamServices.geo.wgs2Utm(middleLeg.travelPath.endPoint.loc), middleLeg.endTime)
+
+    ParkingInquiry(
+      destinationUtm = destinationUtm,
+      activityType = ParkingActivityType.FastCharge,
+      reservedFor = VehicleManager.getReservedFor(currentBeamVehicle.vehicleManagerId.get).get,
+      beamVehicle = Some(currentBeamVehicle),
+      valueOfTime = attributes.valueOfTime,
+      triggerId = getCurrentTriggerIdOrGenerate
+    )
+  }
 
   onTransition { case ReadyToChooseParking -> ChoosingParkingSpot =>
     val data = stateData.asInstanceOf[BasePersonData]
+
     val parkingInquiry =
       if (data.enRouteCharging)
-        createEnRouteChargingInquiry
+        createEnRouteChargingInquiry(data)
       else
         createRegularParkingInquiry(data)
 
@@ -183,6 +189,8 @@ trait ChoosesParking extends {
       stay using data
     case Event(StateTimeout, data: BasePersonData) =>
       val (tick, triggerId) = releaseTickAndTriggerId()
+      // unset the en route charging flag
+      val updatedData = data.copy(enRouteCharging = false)
       if (currentBeamVehicle.isConnectedToChargingPoint()) {
         log.debug("Sending ChargingUnplugRequest to ChargingNetworkManager at {}", tick)
         chargingNetworkManager ! ChargingUnplugRequest(
@@ -190,10 +198,10 @@ trait ChoosesParking extends {
           currentBeamVehicle,
           triggerId
         )
-        goto(ReleasingChargingPoint) using data.copy(enRouteCharging = false)
+        goto(ReleasingChargingPoint) using updatedData
       } else {
         handleReleasingParkingSpot(tick, currentBeamVehicle, None, id, parkingManager, eventsManager, triggerId)
-        goto(WaitingToDrive) using data.copy(enRouteCharging = false)
+        goto(WaitingToDrive) using updatedData
       }
     case Event(StateTimeout, data) =>
       val stall = currentBeamVehicle.stall.get
