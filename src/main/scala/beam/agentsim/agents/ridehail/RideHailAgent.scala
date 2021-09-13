@@ -852,12 +852,6 @@ class RideHailAgent(
       if (debugEnabled) outgoingMessages += ev
       handleEndRefuel(tick, energyCharged, triggerId)
       goto(nextStateFromRefueling)
-    case ev @ Event(UnhandledVehicle(tick, _, triggerId), _) =>
-      updateLatestObservedTick(tick)
-      log.debug("state(RideHailingAgent.Refueling.UnhandledVehicle): {}, Vehicle ID: {}", ev, vehicle.id)
-      if (debugEnabled) outgoingMessages += ev
-      handleEndRefuel(tick, 0.0, triggerId)
-      goto(nextStateFromRefueling)
     case ev @ Event(StartingRefuelSession(_, _), _) =>
       log.debug("state(RideHailAgent.Refueling.StartingRefuelSession): {}; Vehicle ID: {}", ev, vehicle.id)
       stay
@@ -1110,8 +1104,6 @@ class RideHailAgent(
 
       nextNotifyVehicleResourceIdle = None
 
-    case _ -> _ =>
-      unstashAll()
     case _ -> Refueling =>
       unstashAll()
       val (tick, triggerId) = releaseTickAndTriggerId()
@@ -1142,5 +1134,8 @@ class RideHailAgent(
           )
       }
       handleUseParkingSpot(tick, currentBeamVehicle, id, geo, eventsManager)
+
+    case _ -> _ =>
+      unstashAll()
   }
 }

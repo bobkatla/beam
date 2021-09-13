@@ -175,7 +175,7 @@ class ChargingNetworkManager(
             handleStartCharging(tick, chargingVehicle, triggerId = triggerId)
         }
       } else {
-        logger.debug(
+        log.debug(
           "Charging request by vehicle {} ({}) at stall {}. This is not handled yet!",
           vehicle.id,
           if (vehicle.isBEV) "BEV" else if (vehicle.isPHEV) "PHEV" else "non-electric",

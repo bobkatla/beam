@@ -7,7 +7,14 @@ import beam.agentsim.agents.BeamAgent._
 import beam.agentsim.agents.PersonAgent._
 import beam.agentsim.agents._
 import beam.agentsim.agents.modalbehaviors.DrivesVehicle.StartLegTrigger
-import beam.agentsim.agents.parking.ChoosesParking._
+import beam.agentsim.agents.parking.ChoosesParking.{
+  handleReleasingParkingSpot,
+  handleUseParkingSpot,
+  ChoosingParkingSpot,
+  ConnectingToChargingPoint,
+  ReleasingChargingPoint,
+  ReleasingParkingSpot
+}
 import beam.agentsim.agents.vehicles.VehicleProtocol.StreetVehicle
 import beam.agentsim.agents.vehicles.{BeamVehicle, PassengerSchedule, VehicleManager}
 import beam.agentsim.events.RefuelSessionEvent.NotApplicable
