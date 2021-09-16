@@ -21,7 +21,7 @@ oaklandCbg <- st_read(shpFile)
 
 ###
 #eventsraw <- readCsv(pp(workDir, "/2021Aug22-Oakland/BASE0/events-raw/2.events.BASE0.csv.gz"))
-events <- readCsv(pp(workDir, "/2021Aug22-Oakland/BASE0/events/filtered.2.events.BASE0.csv.gz"))
+events <- readCsv(pp(workDir, "/2021Aug22-Oakland/BATCH1/events/filtered.15.events.SC2.csv.gz"))
 
 
 #################### REV
@@ -276,4 +276,18 @@ write.csv(
   quote=FALSE,
   na="")
 
+initInfra_1_5_updated_constrained_non_AlamedaOakland <- readCsv(
+  pp(workDir, "/gemini-base-scenario-2-parking-initInfra15-and-constrained-nonAO.csv")
+  )
 
+filtered <- initInfra_1_5_updated_constrained_non_AlamedaOakland[startsWith(parkingZoneId,"AO-")]
+
+logs <- readCsv(pp(workDir, "/beam_to_pydss_federate.csv"))
+
+logs[,.(estimatedLoad=sum(estimatedLoad)),by=.(currentTime)] %>%
+  ggplot(aes(currentTime/3600.,estimatedLoad/1000)) + 
+  geom_bar(stat="identity")
+ggplot(logs) + geom_histogram(aes(estimatedLoad))
+
+
+filtered[,.N,by=.(chargingPointType)]

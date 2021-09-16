@@ -561,7 +561,8 @@ trait DrivesVehicle[T <: DrivingData] extends BeamAgent[T] with Stash with Expon
           .boarders
           .map { personVehicle =>
             logDebug(
-              s"Scheduling BoardVehicleTrigger at $tick for Person ${personVehicle.personId} into vehicle ${data.currentVehicle.head} @ $tick"
+              s"Scheduling BoardVehicleTrigger at $tick for Person ${personVehicle.personId} " +
+              s"into vehicle ${data.currentVehicle.head} @ $tick"
             )
             ScheduleTrigger(
               BoardVehicleTrigger(tick, data.currentVehicle.head),
