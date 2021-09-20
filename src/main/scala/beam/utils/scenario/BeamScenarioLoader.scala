@@ -1,33 +1,33 @@
 package beam.utils.scenario
 
-import java.util
-import scala.util.Random
-
 import beam.agentsim.agents.vehicles.EnergyEconomyAttributes.Powertrain
-import beam.agentsim.agents.vehicles.{BeamVehicle, BeamVehicleType}
+import beam.agentsim.agents.vehicles.{BeamVehicle, BeamVehicleType, VehicleManager}
 import beam.router.Modes.BeamMode
 import beam.sim.BeamScenario
 import beam.sim.common.GeoUtils
+import beam.utils.logging.ExponentialLazyLogging
 import beam.utils.plan.sampling.AvailableModeUtils
 import com.google.common.annotations.VisibleForTesting
-import com.typesafe.scalalogging.LazyLogging
 import org.matsim.api.core.v01.network.Link
-import org.matsim.api.core.v01.population.{Activity, Leg, Person, Plan, Population}
+import org.matsim.api.core.v01.population._
 import org.matsim.api.core.v01.{Coord, Id, Scenario}
 import org.matsim.core.population.PopulationUtils
 import org.matsim.core.population.routes.{NetworkRoute, RouteUtils}
 import org.matsim.core.scenario.{MutableScenario, ScenarioBuilder}
-import org.matsim.households.{Household, _}
+import org.matsim.households._
 import org.matsim.vehicles.{Vehicle, VehicleType, VehicleUtils}
 
+import java.util
+import java.util.concurrent.atomic.AtomicReference
 import scala.collection.JavaConverters._
+import scala.util.Random
 
 class BeamScenarioLoader(
   val scenarioBuilder: ScenarioBuilder,
   var beamScenario: BeamScenario,
   val scenarioSource: ScenarioSource,
   val geo: GeoUtils
-) extends LazyLogging {
+) extends ExponentialLazyLogging {
 
   import BeamScenarioLoader._
 
@@ -51,12 +51,10 @@ class BeamScenarioLoader(
   ): Unit = {
     val attributes = households.getHouseholdAttributes
     attributes.clear()
-    loadedAttributes.foreach {
-      case (id, listOfAttributes) =>
-        listOfAttributes.foreach {
-          case (name, value) =>
-            attributes.putAttribute(id, name, value)
-        }
+    loadedAttributes.foreach { case (id, listOfAttributes) =>
+      listOfAttributes.foreach { case (name, value) =>
+        attributes.putAttribute(id, name, value)
+      }
     }
   }
 
@@ -150,7 +148,7 @@ class BeamScenarioLoader(
       personAttributes.putAttribute(personId, "age", personInfo.age)
       personAttributes.putAttribute(personId, "valueOfTime", personInfo.valueOfTime)
       personAttributes.putAttribute(personId, "sex", sexChar)
-      personAttributes.putAttribute(personId, "excluded-modes", personInfo.excludedModes)
+      personAttributes.putAttribute(personId, "excluded-modes", personInfo.excludedModes.mkString(","))
       person.getAttributes.putAttribute("sex", sexChar)
       person.getAttributes.putAttribute("age", personInfo.age)
 
@@ -190,31 +188,30 @@ class BeamScenarioLoader(
   ): Population = {
     logger.info("Applying plans...")
 
-    plansElements.groupBy(_.personId).foreach {
-      case (personId: PersonId, listOfElementsGroupedByPerson) =>
-        listOfElementsGroupedByPerson.groupBy(_.planIndex).foreach {
-          case (_, listOfElementsGroupedByPlan) if listOfElementsGroupedByPlan.nonEmpty =>
-            val person = population.getPersons.get(Id.createPersonId(personId.id))
+    plansElements.groupBy(_.personId).foreach { case (personId: PersonId, listOfElementsGroupedByPerson) =>
+      listOfElementsGroupedByPerson.groupBy(_.planIndex).foreach {
+        case (_, listOfElementsGroupedByPlan) if listOfElementsGroupedByPlan.nonEmpty =>
+          val person = population.getPersons.get(Id.createPersonId(personId.id))
 
-            val currentPlan = PopulationUtils.createPlan(person)
-            currentPlan.setScore(listOfElementsGroupedByPlan.head.planScore)
-            person.addPlan(currentPlan)
+          val currentPlan = PopulationUtils.createPlan(person)
+          currentPlan.setScore(listOfElementsGroupedByPlan.head.planScore)
+          person.addPlan(currentPlan)
 
-            val personWithoutSelectedPlan = person.getSelectedPlan == null
-            val isCurrentPlanIndexSelected = listOfElementsGroupedByPlan.head.planSelected
-            val isLastPlanIteration = person.getPlans.size() == listOfElementsGroupedByPerson.size
-            if (personWithoutSelectedPlan && (isCurrentPlanIndexSelected || isLastPlanIteration)) {
-              person.setSelectedPlan(currentPlan)
+          val personWithoutSelectedPlan = person.getSelectedPlan == null
+          val isCurrentPlanIndexSelected = listOfElementsGroupedByPlan.head.planSelected
+          val isLastPlanIteration = person.getPlans.size() == listOfElementsGroupedByPerson.size
+          if (personWithoutSelectedPlan && (isCurrentPlanIndexSelected || isLastPlanIteration)) {
+            person.setSelectedPlan(currentPlan)
+          }
+
+          listOfElementsGroupedByPlan.foreach { planElement =>
+            if (planElement.planElementType.equalsIgnoreCase("leg")) {
+              buildAndAddLegToPlan(currentPlan, planElement)
+            } else if (planElement.planElementType.equalsIgnoreCase("activity")) {
+              buildAndAddActivityToPlan(currentPlan, planElement)
             }
-
-            listOfElementsGroupedByPlan.foreach { planElement =>
-              if (planElement.planElementType.equalsIgnoreCase("leg")) {
-                buildAndAddLegToPlan(currentPlan, planElement)
-              } else if (planElement.planElementType.equalsIgnoreCase("activity")) {
-                buildAndAddActivityToPlan(currentPlan, planElement)
-              }
-            }
-        }
+          }
+      }
     }
     population
   }
@@ -242,6 +239,7 @@ class BeamScenarioLoader(
     val leg = PopulationUtils.createAndAddLeg(currentPlan, planElement.legMode.getOrElse(""))
     planElement.legDepartureTime.foreach(v => leg.setDepartureTime(v.toDouble))
     planElement.legTravelTime.foreach(v => leg.setTravelTime(v.toDouble))
+    planElement.legMode.foreach(v => leg.setMode(v))
 
     val legRoute: NetworkRoute = {
       val links = planElement.legRouteLinks.map(v => Id.create(v, classOf[Link])).asJava
@@ -273,7 +271,7 @@ class BeamScenarioLoader(
   }
 }
 
-object BeamScenarioLoader extends LazyLogging {
+object BeamScenarioLoader extends ExponentialLazyLogging {
 
   private[utils] def buildMatsimHouseholds(
     households: Iterable[HouseholdInfo],
@@ -282,8 +280,8 @@ object BeamScenarioLoader extends LazyLogging {
   ): Iterable[Household] = {
     val householdIdToVehicles = vehicles
       .groupBy(_.householdId)
-      .map {
-        case (id, vehicleInfo) => HouseholdId(id) -> vehicleInfo
+      .map { case (id, vehicleInfo) =>
+        HouseholdId(id) -> vehicleInfo
       }
 
     val householdIdToPersons = people.groupBy(_.householdId)
@@ -349,8 +347,16 @@ object BeamScenarioLoader extends LazyLogging {
 
     val beamVehicleType = map(beamVehicleTypeId)
 
+    val vehicleManagerId =
+      VehicleManager.createOrGetReservedFor(info.householdId, VehicleManager.TypeEnum.Household).managerId
     val powerTrain = new Powertrain(beamVehicleType.primaryFuelConsumptionInJoulePerMeter)
-    new BeamVehicle(beamVehicleId, powerTrain, beamVehicleType, randomSeed)
+    new BeamVehicle(
+      beamVehicleId,
+      powerTrain,
+      beamVehicleType,
+      new AtomicReference(vehicleManagerId),
+      randomSeed = randomSeed
+    )
   }
 
 }

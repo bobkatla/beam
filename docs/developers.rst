@@ -195,6 +195,24 @@ Similarly for experiment batch, you can specify comma-separated experiment files
 
 For demo and presentation material, please follow the link_ on google drive.
 
+BEAM run on NERSC
+~~~~~~~~~~~~~~~~~
+
+In order to run BEAM on NERSC one needs to get an `ssh key <https://docs.nersc.gov/connect/mfa/#sshproxy>`_ that allows you to ssh to NERSC systems without further authentication until the key expires (24 hours). You also need to specify your user name on NERSC in the following property: **nerscUser**, i.e::
+
+ ./gradlew deployToNersc -PnerscUser=dmitriio
+
+You need to define the deploy properties that are similar to the ones for AWS deploy. These are the properties that is used on NERSC:
+
+* **runName**: to specify instance name.
+* **beamBranch**: To specify the branch for simulation, current source branch will be used as default branch.
+* **beamCommit**: The commit SHA to run simulation. use `HEAD` if you want to run with latest commit, default is `HEAD`.
+* **beamConfigs**: The `beam.conf` file. It should be relative path under the project home.
+* **s3Backup**: to specify if copying results to s3 bucket is needed, default is `true`.
+* **region**: Use this parameter to select the AWS region for the run, all instances would be created in specified region. Default `region` is `us-east-2`.
+
+Your task is going to be added to the queue and when it starts/finishes you receive a notification on your git user email. It may take 1-24 hours (or even more) for the task to get started. It depends on the NERSC workload. In your user home directory on NERSC you can find the output file of your task that looks like `slurm-<job id>.out`. The BEAM output directory is resides at `$SCRATCH/beam_runs/`. Also the output is uploaded to s3 if `s3Backup` is set to true.
+
 
 PILATES run on EC2
 ~~~~~~~~~~~~~~~~~~
@@ -555,6 +573,22 @@ If everything turned out well, the cloning process should not ask for the creden
    git checkout -b master upstream/master
    git pull
 
+Build BEAM docker image
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+To build Beam docker image run::
+
+    $ ./gradlew buildImage
+
+in the root of Beam project. If you want to tag the built image run::
+
+    $ ./gradlew tagImage
+
+Once you have the image you can run Beam in Docker. Here is an example how to run test/input/beamville/beam.conf scenario on Windows OS::
+
+   $ docker run -v c:/repos/beam/output:/app/output -e JAVA_OPTS='-Xmx12g' \
+      beammodel/beam:0.8.6 --config test/input/beamville/beam.conf
+
+Docker run command mounts host folder c:/repos/beam/output to be /app/output which allows to see the output of the Beam run. It also passes environment variable e JAVA_OPTS to the container in order to set maximum heap size for Java application.
 
 Scala tips
 ^^^^^^^^^^
