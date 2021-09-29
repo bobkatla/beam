@@ -104,7 +104,7 @@ class ActivitySimFilterEventSpec extends AnyWordSpecLike with Matchers {
       Random.nextBoolean(),
       Random.nextDouble(),
       tourIndex,
-      EmbodiedBeamTrip(IndexedSeq.empty[EmbodiedBeamLeg])
+      Right(EmbodiedBeamTrip(IndexedSeq.empty[EmbodiedBeamLeg]))
     )
   }
 

@@ -30,6 +30,7 @@ import beam.agentsim.scheduler.BeamAgentScheduler.{CompletionNotice, ScheduleTri
 import beam.agentsim.scheduler.HasTriggerId
 import beam.agentsim.scheduler.Trigger.TriggerWithId
 import beam.router.BeamRouter.RoutingResponse
+import beam.router.Modes.BeamMode
 import beam.router.Modes.BeamMode.CAV
 import beam.router.RouteHistory
 import beam.router.model.{BeamLeg, EmbodiedBeamLeg}
@@ -79,6 +80,7 @@ object HouseholdActor {
     homeCoord: Coord,
     sharedVehicleFleets: Seq[ActorRef] = Vector(),
     possibleSharedVehicleTypes: Set[BeamVehicleType],
+    skimModes: Set[BeamMode] = Set.empty,
     routeHistory: RouteHistory,
     boundingBox: Envelope
   ): Props = {
@@ -101,6 +103,7 @@ object HouseholdActor {
         homeCoord,
         sharedVehicleFleets,
         possibleSharedVehicleTypes,
+        skimModes,
         routeHistory,
         boundingBox
       )
@@ -152,6 +155,7 @@ object HouseholdActor {
     homeCoord: Coord,
     sharedVehicleFleets: Seq[ActorRef] = Vector(),
     possibleSharedVehicleTypes: Set[BeamVehicleType],
+    skimModes: Set[BeamMode] = Set.empty,
     routeHistory: RouteHistory,
     boundingBox: Envelope
   ) extends LoggingMessageActor
@@ -327,6 +331,7 @@ object HouseholdActor {
               fleetManagers.toSeq,
               sharedVehicleFleets,
               possibleSharedVehicleTypes,
+              skimModes,
               routeHistory,
               boundingBox
             ),

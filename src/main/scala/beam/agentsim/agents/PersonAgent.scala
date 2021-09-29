@@ -9,6 +9,7 @@ import beam.agentsim.agents.household.HouseholdActor.ReleaseVehicle
 import beam.agentsim.agents.household.HouseholdCAVDriverAgent
 import beam.agentsim.agents.modalbehaviors.ChoosesMode.ChoosesModeData
 import beam.agentsim.agents.modalbehaviors.DrivesVehicle._
+import beam.agentsim.agents.modalbehaviors.ModeChoiceCalculator.TripDataOrTrip
 import beam.agentsim.agents.modalbehaviors.{ChoosesMode, DrivesVehicle, ModeChoiceCalculator}
 import beam.agentsim.agents.parking.ChoosesParking
 import beam.agentsim.agents.parking.ChoosesParking.{ChoosingParkingSpot, ReleasingParkingSpot}
@@ -81,6 +82,7 @@ object PersonAgent {
     fleetManagers: Seq[ActorRef],
     sharedVehicleFleets: Seq[ActorRef],
     possibleSharedVehicleTypes: Set[BeamVehicleType],
+    skimModes: Set[BeamMode],
     routeHistory: RouteHistory,
     boundingBox: Envelope
   ): Props = {
@@ -103,6 +105,7 @@ object PersonAgent {
         fleetManagers,
         sharedVehicleFleets,
         possibleSharedVehicleTypes,
+        skimModes,
         routeHistory,
         boundingBox
       )
@@ -157,7 +160,7 @@ object PersonAgent {
 
   case class BasePersonData(
     currentActivityIndex: Int = 0,
-    currentTrip: Option[EmbodiedBeamTrip] = None,
+    currentTrip: Option[TripDataOrTrip] = None,
     restOfCurrentTrip: List[EmbodiedBeamLeg] = List(),
     currentVehicle: VehicleStack = Vector(),
     currentTourMode: Option[BeamMode] = None,
@@ -213,6 +216,8 @@ object PersonAgent {
 
   case object ReadyToChooseParking extends Traveling
 
+  case object ImaginaryTravelling extends Traveling
+
   case object Moving extends Traveling
 
   case object Driving extends Traveling
@@ -264,6 +269,7 @@ class PersonAgent(
   val fleetManagers: Seq[ActorRef] = Vector(),
   val sharedVehicleFleets: Seq[ActorRef] = Vector(),
   val possibleSharedVehicleTypes: Set[BeamVehicleType] = Set.empty,
+  val skimModes: Set[BeamMode] = Set.empty,
   val routeHistory: RouteHistory,
   val boundingBox: Envelope
 ) extends DrivesVehicle[PersonData]
@@ -445,7 +451,7 @@ class PersonAgent(
     }
     for {
       trip <- data.currentTrip
-      leg  <- _find(trip.legs)
+      leg  <- _find(trip.right.get.legs)
     } yield {
       leg
     }
@@ -524,11 +530,20 @@ class PersonAgent(
           tick,
           id,
           currentActivity(data).getLinkId,
-          currentTrip.tripClassifier.value
+          currentTrip.fold(_.tripClassifier, _.tripClassifier).value
         )
       )
-      holdTickAndTriggerId(tick, triggerId)
-      goto(ProcessingNextLegOrStartActivity) using data.copy(hasDeparted = true)
+      currentTrip match {
+        case Left(tripData) =>
+          val tripFinishesAt = tick + Math.round(tripData.time).toInt
+          goto(ImaginaryTravelling) using data.copy(hasDeparted = true) replying CompletionNotice(
+            triggerId,
+            ScheduleTrigger(EndLegTrigger(tripFinishesAt), self)
+          )
+        case Right(_) =>
+          holdTickAndTriggerId(tick, triggerId)
+          goto(ProcessingNextLegOrStartActivity) using data.copy(hasDeparted = true)
+      }
 
     case Event(
           TriggerWithId(PersonDepartureTrigger(tick), triggerId),
@@ -661,7 +676,7 @@ class PersonAgent(
      */
     case Event(
           TriggerWithId(BoardVehicleTrigger(tick, vehicleToEnter), triggerId),
-          data @ BasePersonData(_, _, currentLeg :: _, currentVehicle, _, _, _, _, _, _, _, _)
+          data @ BasePersonData(_, Some(Right(currentTrip)), currentLeg :: _, currentVehicle, _, _, _, _, _, _, _, _)
         ) =>
       logDebug(s"PersonEntersVehicle: $vehicleToEnter @ $tick")
       eventsManager.processEvent(new PersonEntersVehicleEvent(tick, id, vehicleToEnter))
@@ -675,7 +690,7 @@ class PersonAgent(
           new PersonCostEvent(
             tick,
             id,
-            data.currentTrip.get.tripClassifier.value,
+            currentTrip.tripClassifier.value,
             0.0, // incentive applies to a whole trip and is accounted for at Arrival
             0.0, // only drivers pay tolls, if a toll is in the fare it's still a fare
             currentLeg.cost
@@ -704,6 +719,11 @@ class PersonAgent(
         restOfCurrentTrip = restOfCurrentTrip.dropWhile(leg => leg.beamVehicleId == vehicleToExit),
         currentVehicle = currentVehicle.tail
       )
+  }
+
+  when(ImaginaryTravelling) { case Event(TriggerWithId(EndLegTrigger(tick), triggerId), _) =>
+    holdTickAndTriggerId(tick, triggerId)
+    goto(ProcessingNextLegOrStartActivity)
   }
 
   // Callback from DrivesVehicle. Analogous to AlightVehicleTrigger, but when driving ourselves.
@@ -795,6 +815,28 @@ class PersonAgent(
           _currentTick.get
         )
       )
+  }
+
+  def endTime(activity: Activity, tick: Int): Double = {
+    val result =
+      if (
+        activity.getEndTime >= tick && Math
+          .abs(activity.getEndTime) < Double.PositiveInfinity
+      ) {
+        activity.getEndTime
+      } else if (activity.getEndTime >= 0.0 && activity.getEndTime < tick) {
+        tick
+      } else {
+        //           logWarn(s"Activity endTime is negative or infinite ${activity}, assuming duration of 10
+        // minutes.")
+        //TODO consider ending the day here to match MATSim convention for start/end activity
+        tick + 60 * 10
+      }
+    if (lastTickOfSimulation >= tick) {
+      Math.min(lastTickOfSimulation, result)
+    } else {
+      result
+    }
   }
 
   when(ProcessingNextLegOrStartActivity, stateTimeout = Duration.Zero) {
@@ -976,12 +1018,12 @@ class PersonAgent(
     case Event(
           StateTimeout,
           data @ BasePersonData(
-            currentActivityIndex,
-            Some(currentTrip),
+            _,
+            Some(Right(currentTrip)),
             _,
             _,
-            currentTourMode,
-            currentTourPersonalVehicle,
+            _,
+            _,
             _,
             _,
             _,
@@ -993,25 +1035,7 @@ class PersonAgent(
       nextActivity(data) match {
         case Some(activity) =>
           val (tick, triggerId) = releaseTickAndTriggerId()
-          val endTime =
-            if (
-              activity.getEndTime >= tick && Math
-                .abs(activity.getEndTime) < Double.PositiveInfinity
-            ) {
-              activity.getEndTime
-            } else if (activity.getEndTime >= 0.0 && activity.getEndTime < tick) {
-              tick
-            } else {
-              //           logWarn(s"Activity endTime is negative or infinite ${activity}, assuming duration of 10
-              // minutes.")
-              //TODO consider ending the day here to match MATSim convention for start/end activity
-              tick + 60 * 10
-            }
-          val newEndTime = if (lastTickOfSimulation >= tick) {
-            Math.min(lastTickOfSimulation, endTime)
-          } else {
-            endTime
-          }
+          val newEndTime = endTime(activity, tick)
           // Report travelled distance for inclusion in experienced plans.
           // We currently get large unaccountable differences in round trips, e.g. work -> home may
           // be twice as long as home -> work. Probably due to long links, and the location of the activity
@@ -1039,7 +1063,7 @@ class PersonAgent(
                 0.0 // the cost as paid by person has already been accounted for, this event is just about the incentive
               )
             )
-          val correctedTrip = correctTripEndTime(data.currentTrip.get, tick, body.id, body.beamVehicleType.id)
+          val correctedTrip = correctTripEndTime(currentTrip, tick, body.id, body.beamVehicleType.id)
           val generalizedTime =
             modeChoiceCalculator.getGeneralizedTimeOfTrip(correctedTrip, Some(attributes), nextActivity(data))
           val generalizedCost = modeChoiceCalculator.getNonTimeCost(correctedTrip) + attributes
@@ -1081,48 +1105,93 @@ class PersonAgent(
               eventsManager.processEvent(DriveTimeSkimmerEvent(tick, beamServices, carLeg))
           }
 
-          resetFuelConsumed()
-
-          eventsManager.processEvent(
-            new ActivityStartEvent(
-              tick,
-              id,
-              activity.getLinkId,
-              activity.getFacilityId,
-              activity.getType
-            )
-          )
-          scheduler ! CompletionNotice(
-            triggerId,
-            Vector(ScheduleTrigger(ActivityEndTrigger(newEndTime.toInt), self))
-          )
-          goto(PerformingActivity) using data.copy(
-            currentActivityIndex = currentActivityIndex + 1,
-            currentTrip = None,
-            restOfCurrentTrip = List(),
-            currentTourPersonalVehicle = currentTourPersonalVehicle match {
-              case Some(personalVehId) =>
-                val personalVeh = beamVehicles(personalVehId).asInstanceOf[ActualVehicle].vehicle
-                if (activity.getType.equals("Home")) {
-                  potentiallyChargingBeamVehicles.put(personalVeh.id, beamVehicles(personalVeh.id))
-                  beamVehicles -= personalVeh.id
-                  personalVeh.getManager.get ! ReleaseVehicle(personalVeh, triggerId)
-                  None
-                } else {
-                  currentTourPersonalVehicle
-                }
-              case None =>
-                None
-            },
-            currentTourMode = if (activity.getType.equals("Home")) None else currentTourMode,
-            hasDeparted = false
-          )
+          gotoPerformingActivity(data, activity, tick, triggerId, newEndTime)
         case None =>
           logDebug("PersonAgent nextActivity returned None")
           val (_, triggerId) = releaseTickAndTriggerId()
           scheduler ! CompletionNotice(triggerId)
           stop
       }
+
+    case Event(
+          StateTimeout,
+          data @ BasePersonData(
+            _,
+            Some(Left(tripData)),
+            _,
+            _,
+            _,
+            _,
+            _,
+            _,
+            _,
+            _,
+            _,
+            _
+          )
+        ) =>
+      nextActivity(data) match {
+        case Some(activity) =>
+          val (tick, triggerId) = releaseTickAndTriggerId()
+          val newEndTime = endTime(activity, tick)
+          assert(activity.getLinkId != null)
+          eventsManager.processEvent(
+            new PersonArrivalEvent(tick, id, activity.getLinkId, tripData.tripClassifier.value)
+          )
+
+          gotoPerformingActivity(data, activity, tick, triggerId, newEndTime)
+
+        case None =>
+          logDebug("PersonAgent nextActivity returned None")
+          val (_, triggerId) = releaseTickAndTriggerId()
+          scheduler ! CompletionNotice(triggerId)
+          stop
+      }
+  }
+
+  private def gotoPerformingActivity(
+    data: BasePersonData,
+    activity: Activity,
+    tick: Int,
+    triggerId: Long,
+    newEndTime: Double
+  ) = {
+    resetFuelConsumed()
+
+    eventsManager.processEvent(
+      new ActivityStartEvent(
+        tick,
+        id,
+        activity.getLinkId,
+        activity.getFacilityId,
+        activity.getType
+      )
+    )
+    scheduler ! CompletionNotice(
+      triggerId,
+      Vector(ScheduleTrigger(ActivityEndTrigger(newEndTime.toInt), self))
+    )
+    goto(PerformingActivity) using data.copy(
+      currentActivityIndex = data.currentActivityIndex + 1,
+      currentTrip = None,
+      restOfCurrentTrip = List(),
+      currentTourPersonalVehicle = data.currentTourPersonalVehicle match {
+        case Some(personalVehId) =>
+          val personalVeh = beamVehicles(personalVehId).asInstanceOf[ActualVehicle].vehicle
+          if (activity.getType.equals("Home")) {
+            potentiallyChargingBeamVehicles.put(personalVeh.id, beamVehicles(personalVeh.id))
+            beamVehicles -= personalVeh.id
+            personalVeh.getManager.get ! ReleaseVehicle(personalVeh, triggerId)
+            None
+          } else {
+            data.currentTourPersonalVehicle
+          }
+        case None =>
+          None
+      },
+      currentTourMode = if (activity.getType.equals("Home")) None else data.currentTourMode,
+      hasDeparted = false
+    )
   }
 
   def getReplanningReasonFrom(data: BasePersonData, prefix: String): String = {

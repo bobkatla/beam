@@ -45,6 +45,10 @@ object BeamAgentScheduler {
   ) extends SchedulerMessage
       with HasTriggerId
 
+  object CompletionNotice {
+    def apply(id: Long, newTrigger: ScheduleTrigger): CompletionNotice = CompletionNotice(id, IndexedSeq(newTrigger))
+  }
+
   case object Monitor extends SchedulerMessage
 
   case object RequestCurrentTime extends SchedulerMessage
