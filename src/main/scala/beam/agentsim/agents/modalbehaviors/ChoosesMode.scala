@@ -1496,10 +1496,17 @@ trait ChoosesMode {
           )
         )
 
-        goto(Teleporting) using data.personData.copy(
+        val updatedData = data.personData.copy(
           currentTrip = Some(chosenTrip),
           restOfCurrentTrip = List()
         )
+        log.info(
+          "MODE_CHOICE_TELE, mode chosen: person '{}', restOfCurrentTrip '{}', currentTourMode: '{}'",
+          id,
+          updatedData.restOfCurrentTrip,
+          updatedData.currentTourMode
+        )
+        goto(Teleporting) using updatedData
 
       case _ =>
         val (vehiclesUsed, vehiclesNotUsed) = data.availablePersonalStreetVehicles
@@ -1527,7 +1534,7 @@ trait ChoosesMode {
             )
           )
         )
-        goto(WaitingForDeparture) using data.personData.copy(
+        val updatedData = data.personData.copy(
           currentTrip = Some(chosenTrip),
           restOfCurrentTrip = chosenTrip.legs.toList,
           currentTourMode = data.personData.currentTourMode
@@ -1539,6 +1546,13 @@ trait ChoosesMode {
               data.personData.currentTourPersonalVehicle
                 .orElse(vehiclesUsed.headOption.filter(mustBeDrivenHome).map(_.id))
         )
+        log.info(
+          "MODE_CHOICE, mode chosen: person '{}', restOfCurrentTrip '{}', currentTourMode: '{}'",
+          id,
+          updatedData.restOfCurrentTrip,
+          updatedData.currentTourMode
+        )
+        goto(WaitingForDeparture) using updatedData
     }
 
   }
