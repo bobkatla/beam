@@ -322,16 +322,16 @@ scalafmt {
 }
 
 configurations.all {
-        resolutionStrategy {
-            eachDependency { DependencyResolveDetails dependencyResolveDetails ->
-                final requestedDependency = dependencyResolveDetails.requested
-                if (requestedDependency.name != 'beam-utilities') {
-                    force 'javax.media:jai_core:1.1.3'
-                }
+    resolutionStrategy {
+        eachDependency { DependencyResolveDetails dependencyResolveDetails ->
+            final requestedDependency = dependencyResolveDetails.requested
+            if (requestedDependency.name != 'beam-utilities') {
+                force 'javax.media:jai_core:1.1.3'
             }
         }
-        exclude group: 'javax.media', module: 'jai_codec'
-        exclude group: 'javax.media', module: 'jai_imageio'
+    }
+    exclude group: 'javax.media', module: 'jai_codec'
+    exclude group: 'javax.media', module: 'jai_imageio'
 }
 
 //compileScala.dependsOn(scalafmtAll)
@@ -339,11 +339,11 @@ configurations.all {
 tasks.withType(ScalaCompile) {
     if ( project.hasProperty("report") ) {
         def additionalParameters = ["-Xplugin:" + configurations.scalaCompilerPlugin.asPath,
-                              "-P:scapegoat:dataDir:" + buildDir + "/reports/scapegoat",
-                              "-P:scapegoat:reports:html:xml",
-                              "-P:scapegoat:disabledInspections:OptionGet:UnsafeTraversableMethods:ComparingUnrelatedTypes:TryGet:EitherGet",
-                              "-P:scapegoat:verbose:false",
-                              "-P:scapegoat:consoleOutput:true"]
+                                    "-P:scapegoat:dataDir:" + buildDir + "/reports/scapegoat",
+                                    "-P:scapegoat:reports:html:xml",
+                                    "-P:scapegoat:disabledInspections:OptionGet:UnsafeTraversableMethods:ComparingUnrelatedTypes:TryGet:EitherGet",
+                                    "-P:scapegoat:verbose:false",
+                                    "-P:scapegoat:consoleOutput:true"]
         scalaCompileOptions.additionalParameters = additionalParameters + ["-unchecked", "-deprecation", "-feature"]
     } else {
         scalaCompileOptions.additionalParameters = ["-unchecked", "-deprecation", "-feature",  "-Xfatal-warnings"]
