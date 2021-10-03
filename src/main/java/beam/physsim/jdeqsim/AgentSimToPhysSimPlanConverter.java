@@ -173,9 +173,13 @@ public class AgentSimToPhysSimPlanConverter implements BasicEventHandler, Metric
         String physSimName = beamConfig.beam().physsim().name();
 
         switch (physSimName) {
+
             case "JDEQSim":
+                // if you have one bad link, it will impact a lot
             case "BPRSim":
+                // doesn't enforce link capacity, good when congestion is not primary concern.
             case "PARBPRSim":
+                // running paralell, same output but faster
                 log.info("{} started", physSimName);
 
                 RelaxationExperiment sim = RelaxationExperiment$.MODULE$.apply(beamConfig, agentSimScenario, jdeqsimPopulation,
@@ -262,7 +266,7 @@ public class AgentSimToPhysSimPlanConverter implements BasicEventHandler, Metric
 
         router.tell(new BeamRouter.TryToSerialize(travelTimeMap), ActorRef.noSender());
         router.tell(new BeamRouter.UpdateTravelTimeRemote(travelTimeMap), ActorRef.noSender());
-        //################################################################################################################
+        //
         router.tell(new BeamRouter.UpdateTravelTimeLocal(travelTimeForR5), ActorRef.noSender());
 
         completableFutures.add(CompletableFuture.runAsync(() -> linkSpeedStatsGraph.notifyIterationEnds(iterationNumber, travelTimeFromPhysSim)));
