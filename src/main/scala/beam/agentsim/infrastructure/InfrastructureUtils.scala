@@ -299,6 +299,8 @@ object InfrastructureUtils extends LazyLogging {
     * @param stalls list of parking zones
     * @return
     */
+
+
   def buildRideHailChargingZones[GEO](
     stalls: Map[Id[ParkingZoneId], ParkingZone[GEO]]
   ): Map[Id[VehicleManager], Map[Id[ParkingZoneId], ParkingZone[GEO]]] = {
