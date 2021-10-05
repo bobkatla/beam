@@ -695,7 +695,11 @@ class PersonAgent(
       eventsManager.processEvent(
         new ReplanningEvent(_currentTick.get, Id.createPersonId(id), replanningReason)
       )
-      log.info(">>> person '{}' ChoosingMode:WaitingForReservationConfirmation(ReservationResponse) error '{}'", id, firstErrorResponse)
+      log.info(
+        ">>> person '{}' ChoosingMode:WaitingForReservationConfirmation(ReservationResponse) error '{}'",
+        id,
+        firstErrorResponse
+      )
       goto(ChoosingMode) using ChoosesModeData(
         data.copy(numberOfReplanningAttempts = data.numberOfReplanningAttempts + 1),
         currentLocation =
@@ -989,7 +993,11 @@ class PersonAgent(
       eventsManager.processEvent(
         new ReplanningEvent(_currentTick.get, Id.createPersonId(id), replanningReason)
       )
-      log.info(">>> person '{}' ChoosingMode:ProcessingNextLegOrStartActivity(StateTimeout) [TRANSIT but too late] nextLeg '{}'", id, nextLeg)
+      log.info(
+        ">>> person '{}' ChoosingMode:ProcessingNextLegOrStartActivity(StateTimeout) [TRANSIT but too late] nextLeg '{}'",
+        id,
+        nextLeg
+      )
       goto(ChoosingMode) using ChoosesModeData(
         personData = data
           .copy(currentTourMode = Some(WALK_TRANSIT), numberOfReplanningAttempts = data.numberOfReplanningAttempts + 1),
@@ -1048,7 +1056,11 @@ class PersonAgent(
       eventsManager.processEvent(
         new ReplanningEvent(_currentTick.get, Id.createPersonId(id), replanningReason)
       )
-      log.info(">>> person '{}' ChoosingMode:ProcessingNextLegOrStartActivity(StateTimeout) [CAV but too late] nextLeg '{}'", id, nextLeg)
+      log.info(
+        ">>> person '{}' ChoosingMode:ProcessingNextLegOrStartActivity(StateTimeout) [CAV but too late] nextLeg '{}'",
+        id,
+        nextLeg
+      )
       goto(ChoosingMode) using ChoosesModeData(
         personData = data
           .copy(currentTourMode = Some(WALK_TRANSIT), numberOfReplanningAttempts = data.numberOfReplanningAttempts + 1),

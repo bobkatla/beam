@@ -1506,7 +1506,11 @@ trait ChoosesMode {
           currentTrip = Some(chosenTrip),
           restOfCurrentTrip = List()
         )
-        log.info(">>> person '{}' FinishingModeChoice:currentTourMode [Teleporting] '{}'", id, updatedData.currentTourMode)
+        log.info(
+          ">>> person '{}' FinishingModeChoice:currentTourMode [Teleporting] '{}'",
+          id,
+          updatedData.currentTourMode
+        )
         goto(Teleporting) using updatedData
 
       case _ =>

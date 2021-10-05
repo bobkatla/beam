@@ -511,6 +511,12 @@ class BeamVehicle(
 
 object BeamVehicle {
 
+  val idPrefixSharedTeleportationVehicle = "teleportationSharedVehicle"
+
+  def isSharedTeleportationVehicle(vehicleId: Id[BeamVehicle]): Boolean = {
+    vehicleId.toString.startsWith(idPrefixSharedTeleportationVehicle)
+  }
+
   case class FuelConsumed(
     primaryFuel: Double,
     secondaryFuel: Double /*, fuelConsumptionData: IndexedSeq[FuelConsumptionData],

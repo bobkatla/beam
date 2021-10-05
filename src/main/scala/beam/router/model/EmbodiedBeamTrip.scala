@@ -6,8 +6,11 @@ import beam.router.Modes.BeamMode.{
   BIKE,
   BIKE_TRANSIT,
   CAR,
+  CAR_HOV3,
   CAV,
   DRIVE_TRANSIT,
+  HOV2_TELEPORTATION,
+  HOV3_TELEPORTATION,
   RIDE_HAIL,
   RIDE_HAIL_POOLED,
   RIDE_HAIL_TRANSIT,
@@ -78,6 +81,12 @@ object EmbodiedBeamTrip {
           theMode = RIDE_HAIL_POOLED
         } else {
           theMode = RIDE_HAIL
+        }
+      } else if (theMode == WALK && BeamVehicle.isSharedTeleportationVehicle(leg.beamVehicleId)) {
+        if (leg.beamLeg.mode.value == CAR_HOV3.value) {
+          theMode = HOV3_TELEPORTATION
+        } else {
+          theMode = HOV2_TELEPORTATION
         }
       } else if (theMode == WALK && leg.beamLeg.mode == CAR) {
         theMode = leg.beamLeg.mode // to keep HOV2 or HOV3 as trip mode, instead of resetting it to CAR
