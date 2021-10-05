@@ -170,6 +170,7 @@ public class ModeChosenAnalysis extends BaseModeAnalysis {
         hourModeFrequency.put(hour, hourData);
 
         modeChosenAvailableAlternativesCount.merge(new ModeChosenAvailableAlternatives(mode, event.availableAlternatives), 1, Integer::sum);
+        log.info(">>> person '{}' ModeChosenAnalysis:processModeChoice mode '{}' currentTourMode '{}'", event.personId, event.mode, event.currentTourMode);
     }
 
     //    accumulating data for each iteration
