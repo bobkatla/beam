@@ -514,6 +514,7 @@ class PersonAgent(
           currentTourMode = nextTourMode,
           numberOfReplanningAttempts = 0
         )
+        log.info(">>> person '{}' ChoosingMode:PerformingActivity(ActivityEndTrigger) nextAct '{}'", id, nextAct)
         goto(ChoosingMode) using ChoosesModeData(
           personData = personData,
           SpaceTime(currentActivity(data).getCoord, _currentTick.get)
@@ -664,6 +665,7 @@ class PersonAgent(
       )
     )
     eventsManager.processEvent(new ReplanningEvent(tick, Id.createPersonId(id), replanningReason))
+    log.info(">>> person '{}' ChoosingMode:handleFailedRideHailReservation error '{}'", id, error)
     goto(ChoosingMode) using ChoosesModeData(
       data.copy(currentTourMode = None, numberOfReplanningAttempts = data.numberOfReplanningAttempts + 1),
       currentLocation = SpaceTime(
@@ -693,6 +695,7 @@ class PersonAgent(
       eventsManager.processEvent(
         new ReplanningEvent(_currentTick.get, Id.createPersonId(id), replanningReason)
       )
+      log.info(">>> person '{}' ChoosingMode:WaitingForReservationConfirmation(ReservationResponse) error '{}'", id, firstErrorResponse)
       goto(ChoosingMode) using ChoosesModeData(
         data.copy(numberOfReplanningAttempts = data.numberOfReplanningAttempts + 1),
         currentLocation =
@@ -876,6 +879,7 @@ class PersonAgent(
       eventsManager.processEvent(
         new ReplanningEvent(_currentTick.get, Id.createPersonId(id), replanningReason)
       )
+      log.info(">>> person '{}' ChoosingMode:TryingToBoardVehicle(NotAvailable) replanning", id)
       goto(ChoosingMode) using ChoosesModeData(
         basePersonData.copy(
           currentTourMode = None, // Have to give up my mode as well, perhaps there's no option left for driving.
@@ -985,6 +989,7 @@ class PersonAgent(
       eventsManager.processEvent(
         new ReplanningEvent(_currentTick.get, Id.createPersonId(id), replanningReason)
       )
+      log.info(">>> person '{}' ChoosingMode:ProcessingNextLegOrStartActivity(StateTimeout) [TRANSIT but too late] nextLeg '{}'", id, nextLeg)
       goto(ChoosingMode) using ChoosesModeData(
         personData = data
           .copy(currentTourMode = Some(WALK_TRANSIT), numberOfReplanningAttempts = data.numberOfReplanningAttempts + 1),
@@ -1043,6 +1048,7 @@ class PersonAgent(
       eventsManager.processEvent(
         new ReplanningEvent(_currentTick.get, Id.createPersonId(id), replanningReason)
       )
+      log.info(">>> person '{}' ChoosingMode:ProcessingNextLegOrStartActivity(StateTimeout) [CAV but too late] nextLeg '{}'", id, nextLeg)
       goto(ChoosingMode) using ChoosesModeData(
         personData = data
           .copy(currentTourMode = Some(WALK_TRANSIT), numberOfReplanningAttempts = data.numberOfReplanningAttempts + 1),

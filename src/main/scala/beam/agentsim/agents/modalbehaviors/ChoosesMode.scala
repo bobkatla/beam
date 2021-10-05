@@ -197,6 +197,7 @@ trait ChoosesMode {
             _,
             _
           ) =>
+        log.info(">>> person '{}' =>ChoosingMode:vehicle '{}'", id, beamVehicles(vehicle))
         self ! MobilityStatusResponse(Vector(beamVehicles(vehicle)), getCurrentTriggerIdOrGenerate)
       // Only need to get available street vehicles if our mode requires such a vehicle
       case ChoosesModeData(
@@ -236,6 +237,7 @@ trait ChoosesMode {
             _
           ) =>
         val teleportationVehicle = createSharedTeleportationVehicle(currentLocation)
+        log.info(">>> person '{}' =>ChoosingMode:vehicle '{}'", id, ActualVehicle(teleportationVehicle))
         self ! MobilityStatusResponse(Vector(ActualVehicle(teleportationVehicle)), getCurrentTriggerIdOrGenerate)
       // Only need to get available street vehicles if our mode requires such a vehicle
       case ChoosesModeData(
@@ -275,6 +277,7 @@ trait ChoosesMode {
             _
           ) =>
         implicit val executionContext: ExecutionContext = context.system.dispatcher
+        log.info(">>> person '{}' =>ChoosingMode:requestAvailableVehicles", id)
         requestAvailableVehicles(
           vehicleFleets,
           currentLocation,
@@ -282,6 +285,7 @@ trait ChoosesMode {
         ) pipeTo self
       // Otherwise, send empty list to self
       case _ =>
+        log.info(">>> person '{}' =>ChoosingMode:empty", id)
         self ! MobilityStatusResponse(Vector(), getCurrentTriggerIdOrGenerate)
     }
   }
@@ -1423,6 +1427,8 @@ trait ChoosesMode {
 
   when(FinishingModeChoice, stateTimeout = Duration.Zero) { case Event(StateTimeout, data: ChoosesModeData) =>
     val chosenTrip = data.pendingChosenTrip.get
+    log.info(">>> person '{}' FinishingModeChoice:pendingChosenTrip '{}'", id, chosenTrip)
+    log.info(">>> person '{}' FinishingModeChoice:availableAlternatives '{}'", id, data.availableAlternatives)
     val (tick, triggerId) = releaseTickAndTriggerId()
     // Write start and end links of chosen route into Activities.
     // We don't check yet whether the incoming and outgoing routes agree on the link an Activity is on.
@@ -1500,12 +1506,7 @@ trait ChoosesMode {
           currentTrip = Some(chosenTrip),
           restOfCurrentTrip = List()
         )
-        log.info(
-          "MODE_CHOICE_TELE, mode chosen: person '{}', restOfCurrentTrip '{}', currentTourMode: '{}'",
-          id,
-          updatedData.restOfCurrentTrip,
-          updatedData.currentTourMode
-        )
+        log.info(">>> person '{}' FinishingModeChoice:currentTourMode [Teleporting] '{}'", id, updatedData.currentTourMode)
         goto(Teleporting) using updatedData
 
       case _ =>
@@ -1546,12 +1547,7 @@ trait ChoosesMode {
               data.personData.currentTourPersonalVehicle
                 .orElse(vehiclesUsed.headOption.filter(mustBeDrivenHome).map(_.id))
         )
-        log.info(
-          "MODE_CHOICE, mode chosen: person '{}', restOfCurrentTrip '{}', currentTourMode: '{}'",
-          id,
-          updatedData.restOfCurrentTrip,
-          updatedData.currentTourMode
-        )
+        log.info(">>> person '{}' FinishingModeChoice:currentTourMode '{}'", id, updatedData.currentTourMode)
         goto(WaitingForDeparture) using updatedData
     }
 
