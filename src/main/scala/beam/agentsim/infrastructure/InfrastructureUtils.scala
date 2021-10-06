@@ -111,14 +111,14 @@ object InfrastructureUtils extends LazyLogging {
               envelopeInUTM,
               beamServices
             ),
-//            buildRideHailChargingZones[TAZ](stallsTAZ).map { case (managerId, chargingZones) =>
-//              DefaultRideHailDepotParkingManager.init(
-//                managerId,
-//                chargingZones,
-//                envelopeInUTM,
-//                beamServices
-//              )
-//            }.head
+            buildRideHailChargingZones[TAZ](stallsTAZ).map { case (managerId, chargingZones) =>
+              DefaultRideHailDepotParkingManager.init(
+                managerId,
+                chargingZones,
+                envelopeInUTM,
+                beamServices
+              )
+            }.head
           )
         case "link" =>
           val stallsLINK = stalls.asInstanceOf[Map[Id[ParkingZoneId], ParkingZone[Link]]]
