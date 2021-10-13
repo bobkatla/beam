@@ -4,7 +4,6 @@ import java.io.File
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.atomic.AtomicInteger
-
 import beam.agentsim.infrastructure.geozone._
 import beam.sim.common.GeoUtils
 import beam.sim.population.PopulationAdjustment
@@ -14,21 +13,11 @@ import beam.utils.csv.CsvWriter
 import beam.utils.data.ctpp.models.ResidenceToWorkplaceFlowGeography
 import beam.utils.data.ctpp.readers.BaseTableReader.{CTPPDatabaseInfo, PathToData}
 import beam.utils.data.synthpop.GeoService.CheckResult
-import beam.utils.data.synthpop.generators.{
-  RandomWorkDestinationGenerator,
-  TimeLeavingHomeGenerator,
-  TimeLeavingHomeGeneratorImpl,
-  WorkedDurationGeneratorImpl
-}
+import beam.utils.data.synthpop.generators.{RandomWorkDestinationGenerator, TimeLeavingHomeGenerator, TimeLeavingHomeGeneratorImpl, WorkedDurationGeneratorImpl}
 import beam.utils.data.synthpop.models.Models
 import beam.utils.data.synthpop.models.Models.{BlockGroupGeoId, County, Gender, GenericGeoId, State, TazGeoId}
 import beam.utils.scenario._
-import beam.utils.scenario.generic.writers.{
-  CsvHouseholdInfoWriter,
-  CsvParkingInfoWriter,
-  CsvPersonInfoWriter,
-  CsvPlanElementWriter
-}
+import beam.utils.scenario.generic.writers.{CsvBlocksInfoWriter, CsvHouseholdInfoWriter, CsvParkingInfoWriter, CsvPersonInfoWriter, CsvPlanElementWriter}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.math3.random.{MersenneTwister, RandomGenerator}
 import org.matsim.api.core.v01.Coord
@@ -49,7 +38,7 @@ case class PersonWithExtraInfo(
 case class PersonWithPlans(person: PersonInfo, plans: List[PlanElement])
 
 case class ScenarioResult(
-  householdWithTheirPeople: Iterable[(HouseholdInfo, List[PersonWithPlans])],
+  householdWithTheirPeople: Iterable[(HouseholdInfo, List[PersonWithPlans], BlockInfo)],
   geoIdToAreaResidentsAndWorkers: Map[GenericGeoId, (Int, Int)]
 )
 
@@ -261,12 +250,18 @@ class SimpleScenarioGenerator(
             s"For BlockGroupId $blockGroupGeoId generated ${householdLocation.size} locations, but the number of households is ${householdsWithPersonData.size}"
           )
         }
-        val res = householdsWithPersonData.zip(householdLocation).map {
+        val res: Iterable[Option[(HouseholdInfo, List[PersonWithPlans], BlockInfo)]] = householdsWithPersonData.zip(householdLocation).map {
           case ((household: Models.Household, personsWithData: Seq[PersonWithExtraInfo]), wgsHouseholdLocation) =>
             val createdHousehold = HouseholdInfo(
               HouseholdId(household.fullId),
               household.numOfVehicles,
               household.income,
+              wgsHouseholdLocation.getX,
+              wgsHouseholdLocation.getY
+            )
+
+            val createBlock = BlockInfo(
+              BlockId(blockGroupGeoId.asUniqueKey.toLong),
               wgsHouseholdLocation.getX,
               wgsHouseholdLocation.getY
             )
@@ -356,7 +351,7 @@ class SimpleScenarioGenerator(
               }
             globalPersonId = lastPersonId
             if (personsAndPlans.size == personsWithData.size) {
-              Some((createdHousehold, personsAndPlans))
+              Some((createdHousehold, personsAndPlans, createBlock))
             } else None
         }
         cnt += 1
@@ -605,6 +600,11 @@ object SimpleScenarioGenerator extends StrictLogging {
     val householdFilePath = s"$pathToOutput/households.csv"
     CsvHouseholdInfoWriter.write(householdFilePath, households)
     logger.info(s"Wrote households information to $householdFilePath")
+
+    val blocks = generatedData.map(_._3).toVector
+    val blockFilePath = s"$pathToOutput/blocks.csv"
+    CsvBlocksInfoWriter.write(blockFilePath, blocks)
+    logger.info(s"Wrote blocks information to $blockFilePath")
 
     val persons = generatedData.flatMap(_._2.map(_.person)).toVector
     val personsFilePath = s"$pathToOutput/persons.csv"

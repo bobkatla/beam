@@ -210,6 +210,11 @@ class PumaLevelScenarioGenerator(
               utmHouseholdCoord.getX,
               utmHouseholdCoord.getY
             )
+            val createBlock = BlockInfo(
+              BlockId(blockGroupGeoId.asUniqueKey.toLong),
+              utmHouseholdCoord.getX,
+              utmHouseholdCoord.getY
+            )
 
             val (personsAndPlans, lastPersonId) =
               personsWithData.foldLeft((List.empty[PersonWithPlans], globalPersonId)) {
@@ -296,7 +301,7 @@ class PumaLevelScenarioGenerator(
               }
             globalPersonId = lastPersonId
             if (personsAndPlans.size == personsWithData.size) {
-              Some((createdHousehold, personsAndPlans))
+              Some((createdHousehold, personsAndPlans, createBlock))
             } else None
           } else {
             logger.info(s"Household location $wgsHouseholdLocation does not belong to bounding box $mapBoundingBox")
