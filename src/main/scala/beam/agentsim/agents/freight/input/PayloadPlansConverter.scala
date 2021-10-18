@@ -26,7 +26,7 @@ object PayloadPlansConverter {
   def readFreightTours(path: String): Map[Id[FreightTour], FreightTour] = {
     GenericCsvReader
       .readAsSeq[FreightTour](path) { row =>
-        //tourId,departureTimeInSec,departureLocationX,departureLocationY,maxTourDurationInSec
+        // tourId,departureTimeInSec,departureLocation_zone,maxTourDurationInSec,departureLocationX,departureLocationY
         val tourId: Id[FreightTour] = row.get("tourId").createId[FreightTour]
         val departureTimeInSec = row.get("departureTimeInSec").toInt
         val departureLocationX = row.get("departureLocationX").toDouble
@@ -52,17 +52,32 @@ object PayloadPlansConverter {
   def readPayloadPlans(path: String, tazTree: TAZTreeMap, rnd: Random): Map[Id[PayloadPlan], PayloadPlan] = {
     GenericCsvReader
       .readAsSeq[PayloadPlan](path) { row =>
-        //payloadId,sequenceRank,tourId,payloadType,weightInKg,requestType,locationX,locationY,estimatedTimeOfArrivalInSec,arrivalTimeWindowInSec,operationDurationInSec
+        // payloadId,sequenceRank,tourId,payloadType,weightInlb,requestType,locationZone,
+        // estimatedTimeOfArrivalInSec,arrivalTimeWindowInSec_lower,arrivalTimeWindowInSec_upper,
+        // operationDurationInSec,locationZone_x,locationZone_y
+        val weightInKg =
+          if (row.containsKey("weightInKg")) row.get("weightInKg").toDouble
+          else row.get("weightInlb").toDouble / 2.20462
+        val location = {
+          val x = row.get("locationZone_x").toDouble
+          val y = row.get("locationZone_y").toDouble
+          new Coord(x, y)
+        }
+        val arrivalTimeWindowInSec = {
+          val lower = row.get("arrivalTimeWindowInSec_lower").toInt
+          val upper = row.get("arrivalTimeWindowInSec_upper").toInt
+          Math.min(lower, upper) + Math.abs(lower - upper) / 2
+        }
         PayloadPlan(
           row.get("payloadId").createId,
           row.get("sequenceRank").toInt,
           row.get("tourId").createId,
           row.get("payloadType").createId[PayloadType],
-          row.get("weightInKg").toDouble,
+          weightInKg,
           FreightRequestType.withNameInsensitive(row.get("requestType")),
-          getDistributedTazLocation(row.get("taz"), tazTree, rnd),
+          location,
           row.get("estimatedTimeOfArrivalInSec").toInt,
-          row.get("arrivalTimeWindowInSec").toInt,
+          arrivalTimeWindowInSec,
           row.get("operationDurationInSec").toInt
         )
       }
@@ -84,7 +99,7 @@ object PayloadPlansConverter {
       tourId: Id[FreightTour],
       vehicleId: Id[BeamVehicle],
       vehicleTypeId: Id[BeamVehicleType],
-      warehouseTaz: String
+      warehouseLocation: Coord
     )
 
     def createCarrierVehicles(
@@ -113,7 +128,7 @@ object PayloadPlansConverter {
     }
 
     def createCarrier(carrierId: Id[FreightCarrier], carrierRows: IndexedSeq[FreightCarrierRow]) = {
-      val warehouseLocation: Coord = getDistributedTazLocation(carrierRows.head.warehouseTaz, tazTree, rnd)
+      val warehouseLocation: Coord = carrierRows.head.warehouseLocation
       val vehicles: scala.IndexedSeq[BeamVehicle] = createCarrierVehicles(carrierId, carrierRows, warehouseLocation)
       val vehicleMap: Map[Id[BeamVehicle], BeamVehicle] = vehicles.map(vehicle => vehicle.id -> vehicle).toMap
 
@@ -137,13 +152,17 @@ object PayloadPlansConverter {
     }
 
     val rows = GenericCsvReader.readAsSeq[FreightCarrierRow](path) { row =>
-      //carrierId,tourId,vehicleId,vehicleTypeId,warehouseTAZ
+      // carrierId,tourId,vehicleId,vehicleTypeId,depot_zone,depot_zone_x,depot_zone_y
       val carrierId: Id[FreightCarrier] = row.get("carrierId").createId
       val tourId: Id[FreightTour] = row.get("tourId").createId
       val vehicleId: Id[BeamVehicle] = Id.createVehicleId(row.get("vehicleId"))
       val vehicleTypeId: Id[BeamVehicleType] = row.get("vehicleTypeId").createId
-      val warehouseTaz = row.get("warehouseTAZ")
-      FreightCarrierRow(carrierId, tourId, vehicleId, vehicleTypeId, warehouseTaz)
+      val warehouseLocation = {
+          val x = row.get("depot_zone_x").toDouble
+          val y = row.get("depot_zone_y").toDouble
+          new Coord(x, y)
+      }
+      FreightCarrierRow(carrierId, tourId, vehicleId, vehicleTypeId, warehouseLocation)
     }
     rows
       .groupBy(_.carrierId)
