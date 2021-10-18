@@ -291,13 +291,12 @@ trait BeamHelper extends LazyLogging {
       val rand: Random = new Random(beamConfig.matsim.modules.global.randomSeed)
       val tours = PayloadPlansConverter.readFreightTours(beamConfig.beam.agentsim.agents.freight.toursFilePath)
       val plans =
-        PayloadPlansConverter.readPayloadPlans(beamConfig.beam.agentsim.agents.freight.plansFilePath, tazMap, rand)
+        PayloadPlansConverter.readPayloadPlans(beamConfig.beam.agentsim.agents.freight.plansFilePath)
       PayloadPlansConverter.readFreightCarriers(
         beamConfig.beam.agentsim.agents.freight.carriersFilePath,
         tours,
         plans,
         vehicleTypes,
-        tazMap,
         rand
       )
     } else {

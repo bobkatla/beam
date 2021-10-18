@@ -49,7 +49,7 @@ object PayloadPlansConverter {
       case None      => throw new IllegalArgumentException(s"Cannot find taz with id $tazId")
     }
 
-  def readPayloadPlans(path: String, tazTree: TAZTreeMap, rnd: Random): Map[Id[PayloadPlan], PayloadPlan] = {
+  def readPayloadPlans(path: String): Map[Id[PayloadPlan], PayloadPlan] = {
     GenericCsvReader
       .readAsSeq[PayloadPlan](path) { row =>
         // payloadId,sequenceRank,tourId,payloadType,weightInlb,requestType,locationZone,
@@ -90,7 +90,6 @@ object PayloadPlansConverter {
     tours: Map[Id[FreightTour], FreightTour],
     plans: Map[Id[PayloadPlan], PayloadPlan],
     vehicleTypes: Map[Id[BeamVehicleType], BeamVehicleType],
-    tazTree: TAZTreeMap,
     rnd: Random
   ): IndexedSeq[FreightCarrier] = {
 

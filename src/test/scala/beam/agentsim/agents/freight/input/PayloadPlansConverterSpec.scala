@@ -27,7 +27,7 @@ class PayloadPlansConverterSpec extends AnyWordSpecLike with Matchers {
   "PayloadPlansConverter" should {
     "read Payload Plans" in {
       val payloadPlans: Map[Id[PayloadPlan], PayloadPlan] =
-        PayloadPlansConverter.readPayloadPlans(s"$freightInputDir/payload-plans.csv", tazMap, new Random(2333L))
+        PayloadPlansConverter.readPayloadPlans(s"$freightInputDir/payload-plans.csv")
       payloadPlans should have size 8
       val plan7 = payloadPlans("payload-7".createId)
       plan7.payloadId should be("payload-7".createId)
@@ -134,7 +134,7 @@ class PayloadPlansConverterSpec extends AnyWordSpecLike with Matchers {
 
   private def readCarriers: IndexedSeq[FreightCarrier] = {
     val payloadPlans: Map[Id[PayloadPlan], PayloadPlan] =
-      PayloadPlansConverter.readPayloadPlans(s"$freightInputDir/payload-plans.csv", tazMap, new Random(4324L))
+      PayloadPlansConverter.readPayloadPlans(s"$freightInputDir/payload-plans.csv")
     val tours = PayloadPlansConverter.readFreightTours(s"$freightInputDir/freight-tours.csv")
     val vehicleTypes = BeamVehicleUtils.readBeamVehicleTypeFile("test/input/beamville/vehicleTypes.csv")
     val freightCarriers: IndexedSeq[FreightCarrier] = PayloadPlansConverter.readFreightCarriers(
@@ -142,7 +142,6 @@ class PayloadPlansConverterSpec extends AnyWordSpecLike with Matchers {
       tours,
       payloadPlans,
       vehicleTypes,
-      tazMap,
       new Random(73737L)
     )
     freightCarriers
