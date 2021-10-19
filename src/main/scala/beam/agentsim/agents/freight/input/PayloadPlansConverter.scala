@@ -68,13 +68,22 @@ object PayloadPlansConverter {
           val upper = row.get("arrivalTimeWindowInSec_upper").toInt
           Math.min(lower, upper) + Math.abs(lower - upper) / 2
         }
+        val requestType = row.get("requestType").toLowerCase() match {
+          case "1" | "unloading" => FreightRequestType.Unloading
+          case "0" | "loading"   => FreightRequestType.Loading
+          case wrongValue =>
+            throw new IllegalArgumentException(
+              s"Value of requestType $wrongValue is unexpected."
+            )
+        }
+
         PayloadPlan(
           row.get("payloadId").createId,
           row.get("sequenceRank").toInt,
           row.get("tourId").createId,
           row.get("payloadType").createId[PayloadType],
           weightInKg,
-          FreightRequestType.withNameInsensitive(row.get("requestType")),
+          requestType,
           location,
           row.get("estimatedTimeOfArrivalInSec").toInt,
           arrivalTimeWindowInSec,
@@ -157,9 +166,9 @@ object PayloadPlansConverter {
       val vehicleId: Id[BeamVehicle] = Id.createVehicleId(row.get("vehicleId"))
       val vehicleTypeId: Id[BeamVehicleType] = row.get("vehicleTypeId").createId
       val warehouseLocation = {
-          val x = row.get("depot_zone_x").toDouble
-          val y = row.get("depot_zone_y").toDouble
-          new Coord(x, y)
+        val x = row.get("depot_zone_x").toDouble
+        val y = row.get("depot_zone_y").toDouble
+        new Coord(x, y)
       }
       FreightCarrierRow(carrierId, tourId, vehicleId, vehicleTypeId, warehouseLocation)
     }
