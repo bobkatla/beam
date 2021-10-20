@@ -306,7 +306,7 @@ trait BeamHelper extends LazyLogging {
     BeamScenario(
       readFuelTypeFile(beamConfig.beam.agentsim.agents.vehicles.fuelTypesFilePath).toMap,
       vehicleTypes,
-      privateVehicles(beamConfig, vehicleTypes) ++ freightCarriers.flatMap(_.fleet),
+      readPrivateVehicles(beamConfig, vehicleTypes),
       new VehicleEnergy(consumptionRateFilterStore, vehicleCsvReader.getLinkToGradeRecordsUsing),
       beamConfig,
       dates,
@@ -343,7 +343,7 @@ trait BeamHelper extends LazyLogging {
     )
   }
 
-  def privateVehicles(
+  def readPrivateVehicles(
     beamConfig: BeamConfig,
     vehicleTypes: Map[Id[BeamVehicleType], BeamVehicleType]
   ): TrieMap[Id[BeamVehicle], BeamVehicle] =
@@ -854,6 +854,10 @@ trait BeamHelper extends LazyLogging {
     households: Households
   ): Unit = {
     if (beamConfig.beam.agentsim.agents.freight.enabled) {
+      beamScenario.freightCarriers
+        .flatMap(_.fleet)
+        .foreach { case (id, vehicle) => beamScenario.privateVehicles.put(id, vehicle) }
+
       val convertWgs2Utm = beamConfig.beam.exchange.scenario.convertWgs2Utm
       val plans: IndexedSeq[(Household, Plan)] = PayloadPlansConverter.generatePopulation(
         beamScenario.freightCarriers,

@@ -161,9 +161,9 @@ object PayloadPlansConverter {
 
     val rows = GenericCsvReader.readAsSeq[FreightCarrierRow](path) { row =>
       // carrierId,tourId,vehicleId,vehicleTypeId,depot_zone,depot_zone_x,depot_zone_y
-      val carrierId: Id[FreightCarrier] = row.get("carrierId").createId
+      val carrierId: Id[FreightCarrier] = s"freightCarrier-${row.get("carrierId")}".createId
       val tourId: Id[FreightTour] = row.get("tourId").createId
-      val vehicleId: Id[BeamVehicle] = Id.createVehicleId(row.get("vehicleId"))
+      val vehicleId: Id[BeamVehicle] = Id.createVehicleId(s"freightVehicle-${row.get("vehicleId")}")
       val vehicleTypeId: Id[BeamVehicleType] = row.get("vehicleTypeId").createId
       val warehouseLocation = {
         val x = row.get("depot_zone_x").toDouble
@@ -172,12 +172,15 @@ object PayloadPlansConverter {
       }
       FreightCarrierRow(carrierId, tourId, vehicleId, vehicleTypeId, warehouseLocation)
     }
-    rows
+
+    val carriersWithFleet = rows
       .groupBy(_.carrierId)
       .map { case (carrierId, carrierRows) =>
         createCarrier(carrierId, carrierRows)
       }
       .toIndexedSeq
+
+    carriersWithFleet
   }
 
   private def createFreightVehicle(
