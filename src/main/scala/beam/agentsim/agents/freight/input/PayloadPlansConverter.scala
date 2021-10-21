@@ -27,11 +27,11 @@ object PayloadPlansConverter {
     GenericCsvReader
       .readAsSeq[FreightTour](path) { row =>
         // tourId,departureTimeInSec,departureLocation_zone,maxTourDurationInSec,departureLocationX,departureLocationY
-        val tourId: Id[FreightTour] = row.get("tourId").createId[FreightTour]
-        val departureTimeInSec = row.get("departureTimeInSec").toInt
-        val departureLocationX = row.get("departureLocationX").toDouble
-        val departureLocationY = row.get("departureLocationY").toDouble
-        val maxTourDurationInSec = row.get("maxTourDurationInSec").toInt
+        val tourId: Id[FreightTour] = row.get("tour_id").createId[FreightTour]
+        val departureTimeInSec = row.get("departureTimeInSec").toDouble.toInt
+        val departureLocationX = row.get("departureLocation_x").toDouble
+        val departureLocationY = row.get("departureLocation_y").toDouble
+        val maxTourDurationInSec = row.get("maxTourDurationInSec").toDouble.toInt
         FreightTour(
           tourId,
           departureTimeInSec,
@@ -64,8 +64,8 @@ object PayloadPlansConverter {
           new Coord(x, y)
         }
         val arrivalTimeWindowInSec = {
-          val lower = row.get("arrivalTimeWindowInSec_lower").toInt
-          val upper = row.get("arrivalTimeWindowInSec_upper").toInt
+          val lower = row.get("arrivalTimeWindowInSec_lower").toDouble.toInt
+          val upper = row.get("arrivalTimeWindowInSec_upper").toDouble.toInt
           Math.min(lower, upper) + Math.abs(lower - upper) / 2
         }
         val requestType = row.get("requestType").toLowerCase() match {
@@ -79,15 +79,15 @@ object PayloadPlansConverter {
 
         PayloadPlan(
           row.get("payloadId").createId,
-          row.get("sequenceRank").toInt,
+          row.get("sequenceRank").toDouble.toInt,
           row.get("tourId").createId,
           row.get("payloadType").createId[PayloadType],
           weightInKg,
           requestType,
           location,
-          row.get("estimatedTimeOfArrivalInSec").toInt,
+          row.get("estimatedTimeOfArrivalInSec").toDouble.toInt,
           arrivalTimeWindowInSec,
-          row.get("operationDurationInSec").toInt
+          row.get("operationDurationInSec").toDouble.toInt
         )
       }
       .groupBy(_.payloadId)
@@ -161,9 +161,11 @@ object PayloadPlansConverter {
 
     val rows = GenericCsvReader.readAsSeq[FreightCarrierRow](path) { row =>
       // carrierId,tourId,vehicleId,vehicleTypeId,depot_zone,depot_zone_x,depot_zone_y
-      val carrierId: Id[FreightCarrier] = s"freightCarrier-${row.get("carrierId")}".createId
+//      val carrierId: Id[FreightCarrier] = s"freightcarrier-${row.get("carrierId")}".createId
+      val carrierId: Id[FreightCarrier] = row.get("carrierId").createId
       val tourId: Id[FreightTour] = row.get("tourId").createId
-      val vehicleId: Id[BeamVehicle] = Id.createVehicleId(s"freightVehicle-${row.get("vehicleId")}")
+//      val vehicleId: Id[BeamVehicle] = Id.createVehicleId(s"freightvehicle-${row.get("vehicleId")}")
+      val vehicleId: Id[BeamVehicle] = Id.createVehicleId(row.get("vehicleId"))
       val vehicleTypeId: Id[BeamVehicleType] = row.get("vehicleTypeId").createId
       val warehouseLocation = {
         val x = row.get("depot_zone_x").toDouble
@@ -261,8 +263,10 @@ object PayloadPlansConverter {
         createActivity("Warehouse", tour.warehouseLocation, tour.departureTimeInSec, geoConverter)
       val firstLeg: Leg = createLeg(tour.departureTimeInSec)
 
-      val plans: IndexedSeq[PayloadPlan] =
-        plansPerTour.getOrElse(tour.tourId, throw new IllegalArgumentException(s"Tour ${tour.tourId} has no plans"))
+      val plans: IndexedSeq[PayloadPlan] = plansPerTour.get(tour.tourId) match {
+        case Some(value) => value
+        case None        => throw new IllegalArgumentException(s"Tour '${tour.tourId}' has no plans")
+      }
       val planElements: IndexedSeq[PlanElement] = plans.flatMap { plan =>
         val activityEndTime = plan.estimatedTimeOfArrivalInSec + plan.operationDurationInSec
         val activityType = plan.requestType.toString
