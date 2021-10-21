@@ -665,6 +665,20 @@ trait BeamHelper extends LazyLogging {
       beamServices.beamConfig
     )
 
+    if (beamServices.beamConfig.beam.agentsim.agents.freight.enabled) {
+      logger.info(s"Generating freight population...")
+      generatePopulationForPayloadPlans(
+        beamServices.beamConfig,
+        beamServices.geo,
+        beamScenario,
+        scenario.getPopulation,
+        scenario.getHouseholds
+      )
+      logger.info(s"""Freight population generated:
+                     |Number of households: ${scenario.getHouseholds.getHouseholds.keySet.size}
+                     |Number of persons: ${scenario.getPopulation.getPersons.keySet.size}""".stripMargin)
+    }
+
     val houseHoldVehiclesInScenario: Iterable[Id[Vehicle]] = scenario.getHouseholds.getHouseholds
       .values()
       .asScala
@@ -836,13 +850,7 @@ trait BeamHelper extends LazyLogging {
           throw new NotImplementedError(s"ScenarioSource '$src' is not yet implemented")
         }
       }
-    generatePopulationForPayloadPlans(
-      beamConfig,
-      geoUtils,
-      beamScenario,
-      scenario.getPopulation,
-      scenario.getHouseholds
-    )
+
     (scenario, beamScenario, plansMerged)
   }
 
@@ -853,36 +861,34 @@ trait BeamHelper extends LazyLogging {
     population: Population,
     households: Households
   ): Unit = {
-    if (beamConfig.beam.agentsim.agents.freight.enabled) {
-      beamScenario.freightCarriers
-        .flatMap(_.fleet)
-        .foreach { case (id, vehicle) => beamScenario.privateVehicles.put(id, vehicle) }
+    beamScenario.freightCarriers
+      .flatMap(_.fleet)
+      .foreach { case (id, vehicle) => beamScenario.privateVehicles.put(id, vehicle) }
 
-      val convertWgs2Utm = beamConfig.beam.exchange.scenario.convertWgs2Utm
-      val plans: IndexedSeq[(Household, Plan)] = PayloadPlansConverter.generatePopulation(
-        beamScenario.freightCarriers,
-        population.getFactory,
-        households.getFactory,
-        if (convertWgs2Utm) Some(geoUtils) else None
+    val convertWgs2Utm = beamConfig.beam.exchange.scenario.convertWgs2Utm
+    val plans: IndexedSeq[(Household, Plan)] = PayloadPlansConverter.generatePopulation(
+      beamScenario.freightCarriers,
+      population.getFactory,
+      households.getFactory,
+      if (convertWgs2Utm) Some(geoUtils) else None
+    )
+
+    val allowedModes = Seq(BeamMode.CAR.value)
+    plans.foreach { case (household, plan) =>
+      households.getHouseholds.put(household.getId, household)
+      population.addPerson(plan.getPerson)
+      AvailableModeUtils.setAvailableModesForPerson_v2(
+        beamScenario,
+        plan.getPerson,
+        household,
+        population,
+        allowedModes
       )
-
-      val allowedModes = Seq(BeamMode.CAR.value)
-      plans.foreach { case (household, plan) =>
-        households.getHouseholds.put(household.getId, household)
-        population.addPerson(plan.getPerson)
-        AvailableModeUtils.setAvailableModesForPerson_v2(
-          beamScenario,
-          plan.getPerson,
-          household,
-          population,
-          allowedModes
-        )
-        val freightVehicle = beamScenario.privateVehicles(household.getVehicleIds.get(0))
-        households.getHouseholdAttributes
-          .putAttribute(household.getId.toString, "homecoordx", freightVehicle.spaceTime.loc.getX)
-        households.getHouseholdAttributes
-          .putAttribute(household.getId.toString, "homecoordy", freightVehicle.spaceTime.loc.getY)
-      }
+      val freightVehicle = beamScenario.privateVehicles(household.getVehicleIds.get(0))
+      households.getHouseholdAttributes
+        .putAttribute(household.getId.toString, "homecoordx", freightVehicle.spaceTime.loc.getX)
+      households.getHouseholdAttributes
+        .putAttribute(household.getId.toString, "homecoordy", freightVehicle.spaceTime.loc.getY)
     }
   }
 
