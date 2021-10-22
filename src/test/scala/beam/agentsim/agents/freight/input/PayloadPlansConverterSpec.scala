@@ -1,7 +1,8 @@
 package beam.agentsim.agents.freight.input
 
 import beam.agentsim.agents.freight._
-import beam.agentsim.infrastructure.taz.TAZTreeMap
+import beam.sim.common.GeoUtils
+import beam.sim.config.BeamConfig.Beam.Agentsim.Agents.Freight
 import beam.utils.BeamVehicleUtils
 import beam.utils.matsim_conversion.MatsimPlanConversion.IdOps
 import org.matsim.api.core.v01.population.{Activity, Person, Plan, PopulationFactory}
@@ -22,12 +23,26 @@ import scala.util.Random
   */
 class PayloadPlansConverterSpec extends AnyWordSpecLike with Matchers {
   private val freightInputDir = s"${System.getenv("PWD")}/test/test-resources/beam/agentsim/freight"
-  private val tazMap: TAZTreeMap = TAZTreeMap.fromCsv("test/input/beamville/taz-centers.csv")
+
+  private val geoUtils = new GeoUtils {
+    override def localCRS: String = "epsg:26910"
+  }
+
+  private val freightConfig: Freight = new Freight(
+    carrierParkingFilePath = None,
+    carriersFilePath = s"$freightInputDir/freight-carriers.csv",
+    plansFilePath = s"$freightInputDir/payload-plans.csv",
+    toursFilePath = s"$freightInputDir/freight-tours.csv",
+    convertWgs2Utm = false,
+    enabled = true,
+    name = "Freight",
+    replanning = new Freight.Replanning(departureTime = 0, disableAfterIteration = -1, strategy = "")
+  )
 
   "PayloadPlansConverter" should {
     "read Payload Plans" in {
       val payloadPlans: Map[Id[PayloadPlan], PayloadPlan] =
-        PayloadPlansConverter.readPayloadPlans(s"$freightInputDir/payload-plans.csv")
+        PayloadPlansConverter.readPayloadPlans(freightConfig, geoUtils)
       payloadPlans should have size 8
       val plan7 = payloadPlans("payload-7".createId)
       plan7.payloadId should be("payload-7".createId)
@@ -43,7 +58,7 @@ class PayloadPlansConverterSpec extends AnyWordSpecLike with Matchers {
     }
 
     "read Freight Tours" in {
-      val tours = PayloadPlansConverter.readFreightTours(s"$freightInputDir/freight-tours.csv")
+      val tours = PayloadPlansConverter.readFreightTours(freightConfig, geoUtils)
       tours should have size 4
       val tour3 = tours("tour-3".createId)
       tour3.tourId should be("tour-3".createId)
@@ -134,11 +149,12 @@ class PayloadPlansConverterSpec extends AnyWordSpecLike with Matchers {
 
   private def readCarriers: IndexedSeq[FreightCarrier] = {
     val payloadPlans: Map[Id[PayloadPlan], PayloadPlan] =
-      PayloadPlansConverter.readPayloadPlans(s"$freightInputDir/payload-plans.csv")
-    val tours = PayloadPlansConverter.readFreightTours(s"$freightInputDir/freight-tours.csv")
+      PayloadPlansConverter.readPayloadPlans(freightConfig, geoUtils)
+    val tours = PayloadPlansConverter.readFreightTours(freightConfig, geoUtils)
     val vehicleTypes = BeamVehicleUtils.readBeamVehicleTypeFile("test/input/beamville/vehicleTypes.csv")
     val freightCarriers: IndexedSeq[FreightCarrier] = PayloadPlansConverter.readFreightCarriers(
-      s"$freightInputDir/freight-carriers.csv",
+      freightConfig,
+      geoUtils,
       tours,
       payloadPlans,
       vehicleTypes,

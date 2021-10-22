@@ -4,9 +4,9 @@ import beam.agentsim.agents.freight._
 import beam.agentsim.agents.vehicles.EnergyEconomyAttributes.Powertrain
 import beam.agentsim.agents.vehicles.{BeamVehicle, BeamVehicleType, VehicleManager}
 import beam.agentsim.events.SpaceTime
-import beam.agentsim.infrastructure.taz.TAZTreeMap
 import beam.router.Modes.BeamMode
 import beam.sim.common.GeoUtils
+import beam.sim.config.BeamConfig
 import beam.utils.csv.GenericCsvReader
 import beam.utils.matsim_conversion.MatsimPlanConversion.IdOps
 import org.matsim.api.core.v01.population._
@@ -23,19 +23,40 @@ import scala.util.Random
   */
 object PayloadPlansConverter {
 
-  def readFreightTours(path: String): Map[Id[FreightTour], FreightTour] = {
+  private def getRowValue(table: String, row: java.util.Map[String, String], key: String): String = {
+    if (row.containsKey(key)) {
+      row.get(key)
+    } else {
+      throw new IllegalArgumentException(s"Missing key '$key' in table '$table'.")
+    }
+  }
+
+  def readFreightTours(
+    freightConfig: BeamConfig.Beam.Agentsim.Agents.Freight,
+    geoUtils: GeoUtils
+  ): Map[Id[FreightTour], FreightTour] = {
+
     GenericCsvReader
-      .readAsSeq[FreightTour](path) { row =>
+      .readAsSeq[FreightTour](freightConfig.toursFilePath) { row =>
+        def get(key: String): String = getRowValue(freightConfig.toursFilePath, row, key)
         // tourId,departureTimeInSec,departureLocation_zone,maxTourDurationInSec,departureLocationX,departureLocationY
-        val tourId: Id[FreightTour] = row.get("tour_id").createId[FreightTour]
-        val departureTimeInSec = row.get("departureTimeInSec").toDouble.toInt
-        val departureLocationX = row.get("departureLocation_x").toDouble
-        val departureLocationY = row.get("departureLocation_y").toDouble
-        val maxTourDurationInSec = row.get("maxTourDurationInSec").toDouble.toInt
+        val tourId: Id[FreightTour] = get("tour_id").createId[FreightTour]
+        val departureTimeInSec = get("departureTimeInSec").toDouble.toInt
+        val maxTourDurationInSec = get("maxTourDurationInSec").toDouble.toInt
+        val departureLocationUTM = {
+          val departureLocationX = get("departureLocation_x").toDouble
+          val departureLocationY = get("departureLocation_y").toDouble
+          val location = new Coord(departureLocationX, departureLocationY)
+          if (freightConfig.convertWgs2Utm) {
+            geoUtils.wgs2Utm(location)
+          } else {
+            location
+          }
+        }
         FreightTour(
           tourId,
           departureTimeInSec,
-          new Coord(departureLocationX, departureLocationY),
+          departureLocationUTM,
           maxTourDurationInSec
         )
       }
@@ -43,32 +64,35 @@ object PayloadPlansConverter {
       .mapValues(_.head)
   }
 
-  private def getDistributedTazLocation(tazId: String, tazTree: TAZTreeMap, rnd: Random): Coord =
-    tazTree.getTAZ(tazId) match {
-      case Some(taz) => TAZTreeMap.randomLocationInTAZ(taz, rnd)
-      case None      => throw new IllegalArgumentException(s"Cannot find taz with id $tazId")
-    }
-
-  def readPayloadPlans(path: String): Map[Id[PayloadPlan], PayloadPlan] = {
+  def readPayloadPlans(
+    freightConfig: BeamConfig.Beam.Agentsim.Agents.Freight,
+    geoUtils: GeoUtils
+  ): Map[Id[PayloadPlan], PayloadPlan] = {
     GenericCsvReader
-      .readAsSeq[PayloadPlan](path) { row =>
+      .readAsSeq[PayloadPlan](freightConfig.plansFilePath) { row =>
+        def get(key: String): String = getRowValue(freightConfig.plansFilePath, row, key)
         // payloadId,sequenceRank,tourId,payloadType,weightInlb,requestType,locationZone,
         // estimatedTimeOfArrivalInSec,arrivalTimeWindowInSec_lower,arrivalTimeWindowInSec_upper,
         // operationDurationInSec,locationZone_x,locationZone_y
         val weightInKg =
-          if (row.containsKey("weightInKg")) row.get("weightInKg").toDouble
-          else row.get("weightInlb").toDouble / 2.20462
-        val location = {
-          val x = row.get("locationZone_x").toDouble
-          val y = row.get("locationZone_y").toDouble
-          new Coord(x, y)
+          if (row.containsKey("weightInKg")) get("weightInKg").toDouble
+          else get("weightInlb").toDouble / 2.20462
+        val locationUTM = {
+          val x = get("locationZone_x").toDouble
+          val y = get("locationZone_y").toDouble
+          val location = new Coord(x, y)
+          if (freightConfig.convertWgs2Utm) {
+            geoUtils.wgs2Utm(location)
+          } else {
+            location
+          }
         }
         val arrivalTimeWindowInSec = {
-          val lower = row.get("arrivalTimeWindowInSec_lower").toDouble.toInt
-          val upper = row.get("arrivalTimeWindowInSec_upper").toDouble.toInt
+          val lower = get("arrivalTimeWindowInSec_lower").toDouble.toInt
+          val upper = get("arrivalTimeWindowInSec_upper").toDouble.toInt
           Math.min(lower, upper) + Math.abs(lower - upper) / 2
         }
-        val requestType = row.get("requestType").toLowerCase() match {
+        val requestType = get("requestType").toLowerCase() match {
           case "1" | "unloading" => FreightRequestType.Unloading
           case "0" | "loading"   => FreightRequestType.Loading
           case wrongValue =>
@@ -78,16 +102,16 @@ object PayloadPlansConverter {
         }
 
         PayloadPlan(
-          row.get("payloadId").createId,
-          row.get("sequenceRank").toDouble.toInt,
-          row.get("tourId").createId,
-          row.get("payloadType").createId[PayloadType],
+          get("payloadId").createId,
+          get("sequenceRank").toDouble.toInt,
+          get("tourId").createId,
+          get("payloadType").createId[PayloadType],
           weightInKg,
           requestType,
-          location,
-          row.get("estimatedTimeOfArrivalInSec").toDouble.toInt,
+          locationUTM,
+          get("estimatedTimeOfArrivalInSec").toDouble.toInt,
           arrivalTimeWindowInSec,
-          row.get("operationDurationInSec").toDouble.toInt
+          get("operationDurationInSec").toDouble.toInt
         )
       }
       .groupBy(_.payloadId)
@@ -95,7 +119,8 @@ object PayloadPlansConverter {
   }
 
   def readFreightCarriers(
-    path: String,
+    freightConfig: BeamConfig.Beam.Agentsim.Agents.Freight,
+    geoUtils: GeoUtils,
     tours: Map[Id[FreightTour], FreightTour],
     plans: Map[Id[PayloadPlan], PayloadPlan],
     vehicleTypes: Map[Id[BeamVehicleType], BeamVehicleType],
@@ -159,20 +184,24 @@ object PayloadPlansConverter {
       FreightCarrier(carrierId, tourMap, payloadMap, vehicleMap, plansPerTour)
     }
 
-    val rows = GenericCsvReader.readAsSeq[FreightCarrierRow](path) { row =>
+    val rows = GenericCsvReader.readAsSeq[FreightCarrierRow](freightConfig.carriersFilePath) { row =>
+      def get(key: String): String = getRowValue(freightConfig.carriersFilePath, row, key)
       // carrierId,tourId,vehicleId,vehicleTypeId,depot_zone,depot_zone_x,depot_zone_y
-//      val carrierId: Id[FreightCarrier] = s"freightcarrier-${row.get("carrierId")}".createId
-      val carrierId: Id[FreightCarrier] = row.get("carrierId").createId
-      val tourId: Id[FreightTour] = row.get("tourId").createId
-//      val vehicleId: Id[BeamVehicle] = Id.createVehicleId(s"freightvehicle-${row.get("vehicleId")}")
-      val vehicleId: Id[BeamVehicle] = Id.createVehicleId(row.get("vehicleId"))
-      val vehicleTypeId: Id[BeamVehicleType] = row.get("vehicleTypeId").createId
-      val warehouseLocation = {
-        val x = row.get("depot_zone_x").toDouble
-        val y = row.get("depot_zone_y").toDouble
-        new Coord(x, y)
+      val carrierId: Id[FreightCarrier] = s"freight-carrier-${get("carrierId")}".createId
+      val tourId: Id[FreightTour] = get("tourId").createId
+      val vehicleId: Id[BeamVehicle] = Id.createVehicleId(s"freight-vehicle-${get("vehicleId")}")
+      val vehicleTypeId: Id[BeamVehicleType] = get("vehicleTypeId").createId
+      val warehouseLocationUTM = {
+        val x = get("depot_zone_x").toDouble
+        val y = get("depot_zone_y").toDouble
+        val location = new Coord(x, y)
+        if (freightConfig.convertWgs2Utm) {
+          geoUtils.wgs2Utm(location)
+        } else {
+          location
+        }
       }
-      FreightCarrierRow(carrierId, tourId, vehicleId, vehicleTypeId, warehouseLocation)
+      FreightCarrierRow(carrierId, tourId, vehicleId, vehicleTypeId, warehouseLocationUTM)
     }
 
     val carriersWithFleet = rows
