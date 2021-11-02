@@ -23,6 +23,8 @@ import scala.util.Random
   */
 object PayloadPlansConverter {
 
+  val freightIdPrefix = "freight"
+
   private def getRowValue(table: String, row: java.util.Map[String, String], key: String): String = {
     if (row.containsKey(key)) {
       row.get(key)
@@ -187,9 +189,9 @@ object PayloadPlansConverter {
     val rows = GenericCsvReader.readAsSeq[FreightCarrierRow](freightConfig.carriersFilePath) { row =>
       def get(key: String): String = getRowValue(freightConfig.carriersFilePath, row, key)
       // carrierId,tourId,vehicleId,vehicleTypeId,depot_zone,depot_zone_x,depot_zone_y
-      val carrierId: Id[FreightCarrier] = s"freight-carrier-${get("carrierId")}".createId
+      val carrierId: Id[FreightCarrier] = s"$freightIdPrefix-carrier-${get("carrierId")}".createId
       val tourId: Id[FreightTour] = get("tourId").createId
-      val vehicleId: Id[BeamVehicle] = Id.createVehicleId(s"freight-vehicle-${get("vehicleId")}")
+      val vehicleId: Id[BeamVehicle] = Id.createVehicleId(s"$freightIdPrefix-vehicle-${get("vehicleId")}")
       val vehicleTypeId: Id[BeamVehicleType] = get("vehicleTypeId").createId
       val warehouseLocationUTM = {
         val x = get("depot_zone_x").toDouble
@@ -319,7 +321,19 @@ object PayloadPlansConverter {
     currentPlan
   }
 
-  def createPersonId(vehicleId: Id[BeamVehicle]): Id[Person] = Id.createPersonId(s"freight-agent-$vehicleId")
+  def createPersonId(vehicleId: Id[BeamVehicle]): Id[Person] = {
+    if (vehicleId.toString.startsWith(freightIdPrefix)) {
+      Id.createPersonId(s"$vehicleId-agent")
+    } else {
+      Id.createPersonId(s"freight-$vehicleId-agent")
+    }
+  }
 
-  def createHouseholdId(vehicleId: Id[BeamVehicle]): Id[Household] = s"freight-household-$vehicleId".createId
+  def createHouseholdId(vehicleId: Id[BeamVehicle]): Id[Household] = {
+    if (vehicleId.toString.startsWith(freightIdPrefix)) {
+      s"$vehicleId-household".createId
+    } else {
+      s"freight-$vehicleId-household".createId
+    }
+  }
 }
