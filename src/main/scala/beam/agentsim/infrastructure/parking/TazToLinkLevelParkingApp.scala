@@ -89,6 +89,7 @@ object TazToLinkLevelParkingApp extends App with StrictLogging {
         .mapValues(zonesByType => zonesByType.map(_.parkingZoneId).toVector)
     }
 
+
   logger.info("Generated {} zones", zoneArrayLink.size)
   logger.info("with {} parking stalls", zoneArrayLink.map(_._2.stallsAvailable.toLong).sum)
   ParkingZoneFileUtils.writeParkingZoneFile(zoneSearchTreeLink, zoneArrayLink, argsMap("out"))

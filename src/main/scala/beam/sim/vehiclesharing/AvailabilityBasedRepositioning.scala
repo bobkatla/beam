@@ -100,6 +100,7 @@ case class AvailabilityBasedRepositioning(
           beamServices.beamScenario.fuelTypePrices(vehicleType.primaryFuelType),
           beamServices.beamScenario,
           beamServices.skims.od_skimmer
+
         )
         if (destTimeOpt.isEmpty || (destTimeOpt.isDefined && skim.time < destTimeOpt.get._2)) {
           destTimeOpt = Some((dst, skim.time))

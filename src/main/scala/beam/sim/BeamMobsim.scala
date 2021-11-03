@@ -378,7 +378,9 @@ class BeamMobsimIteration(
   envelopeInUTM.expandToInclude(activityQuadTreeBounds.maxx, activityQuadTreeBounds.maxy)
   log.info(s"envelopeInUTM after expansion: $envelopeInUTM")
 
+
   import scala.language.existentials
+
 
   private val (parkingNetwork, nonRhChargingNetwork, rhChargingNetwork) =
     InfrastructureUtils.buildParkingAndChargingNetworks(beamServices, envelopeInUTM)
@@ -456,7 +458,13 @@ class BeamMobsimIteration(
 
   private val sharedVehicleFleets = config.agents.vehicles.sharedFleets.map { fleetConfig =>
     context.actorOf(
+<<<<<<< HEAD
+      Fleets
+        .lookup(fleetConfig, config.agentSampleSizeAsFractionOfPopulation)
+        .props(beamServices, scheduler, parkingManager),
+=======
       Fleets.lookup(fleetConfig).props(beamServices, scheduler, parkingNetworkManager, chargingNetworkManager),
+>>>>>>> origin/hl/parking-zones-at-link-level
       fleetConfig.name
     )
   }

@@ -403,7 +403,9 @@ class BeamVehicle(
       case Body =>
         WALK
     }
+
     val needsToCalculateCost = beamVehicleType.vehicleCategory == Car || isSharedVehicle
+
     StreetVehicle(id, beamVehicleType.id, spaceTime, mode, asDriver = true, needsToCalculateCost = needsToCalculateCost)
   }
 

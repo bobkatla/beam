@@ -156,16 +156,29 @@ class ReRouter(val workerParams: R5Parameters, val beamServices: BeamServices) e
       val startCoord = getR5UtmCoord(route.getStartLinkId.toString.toInt)
       val endCoord = getR5UtmCoord(route.getEndLinkId.toString.toInt)
 
-      val departTime = leg.getDepartureTime.toInt
-      val currentPointUTM = SpaceTime(startCoord, departTime)
-      val carStreetVeh =
-        StreetVehicle(
-          car.id,
-          car.beamVehicleType.id,
-          currentPointUTM,
-          CAR,
-          asDriver = true,
-          needsToCalculateCost = true
+        val departTime = leg.getDepartureTime.toInt
+        val currentPointUTM = SpaceTime(startCoord, departTime)
+        val carStreetVeh =
+          StreetVehicle(
+            car.id,
+            car.beamVehicleType.id,
+            currentPointUTM,
+            CAR,
+            asDriver = true,
+            needsToCalculateCost = true
+          )
+        val streetVehicles = Vector(carStreetVeh)
+        val maybeAttributes: Option[AttributesOfIndividual] =
+          Option(person.getCustomAttributes.get("beam-attributes").asInstanceOf[AttributesOfIndividual])
+        val routingRequest = RoutingRequest(
+          originUTM = startCoord,
+          destinationUTM = endCoord,
+          departureTime = departTime,
+          withTransit = false,
+          personId = Some(person.getId),
+          streetVehicles = streetVehicles,
+          attributesOfIndividual = maybeAttributes,
+          streetVehiclesUseIntermodalUse = Access
         )
       val streetVehicles = Vector(carStreetVeh)
       val maybeAttributes: Option[AttributesOfIndividual] =

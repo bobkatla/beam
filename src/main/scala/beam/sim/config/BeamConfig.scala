@@ -12,7 +12,7 @@ object BeamConfig {
 
   case class Beam(
     actorSystemName: java.lang.String,
-    agentsim: BeamConfig.Beam.Agentsim,
+    agentsim: BeamConfig.Beam.Agentsim,f
     calibration: BeamConfig.Beam.Calibration,
     cluster: BeamConfig.Beam.Cluster,
     debug: BeamConfig.Beam.Debug,
@@ -1493,10 +1493,26 @@ object BeamConfig {
         }
 
         case class TripBehaviors(
+          carUsage: BeamConfig.Beam.Agentsim.Agents.TripBehaviors.CarUsage,
           mulitnomialLogit: BeamConfig.Beam.Agentsim.Agents.TripBehaviors.MulitnomialLogit
         )
 
         object TripBehaviors {
+
+          case class CarUsage(
+            minDistanceToTrainStop: scala.Double
+          )
+
+          object CarUsage {
+
+            def apply(c: com.typesafe.config.Config): BeamConfig.Beam.Agentsim.Agents.TripBehaviors.CarUsage = {
+              BeamConfig.Beam.Agentsim.Agents.TripBehaviors.CarUsage(
+                minDistanceToTrainStop =
+                  if (c.hasPathOrNull("minDistanceToTrainStop")) c.getDouble("minDistanceToTrainStop") else 0.0
+              )
+            }
+          }
+
 
           case class MulitnomialLogit(
             activity_file_path: java.lang.String,
@@ -1541,6 +1557,10 @@ object BeamConfig {
 
           def apply(c: com.typesafe.config.Config): BeamConfig.Beam.Agentsim.Agents.TripBehaviors = {
             BeamConfig.Beam.Agentsim.Agents.TripBehaviors(
+              carUsage = BeamConfig.Beam.Agentsim.Agents.TripBehaviors.CarUsage(
+                if (c.hasPathOrNull("carUsage")) c.getConfig("carUsage")
+                else com.typesafe.config.ConfigFactory.parseString("carUsage{}")
+              ),
               mulitnomialLogit = BeamConfig.Beam.Agentsim.Agents.TripBehaviors.MulitnomialLogit(
                 if (c.hasPathOrNull("mulitnomialLogit")) c.getConfig("mulitnomialLogit")
                 else com.typesafe.config.ConfigFactory.parseString("mulitnomialLogit{}")
@@ -3894,14 +3914,16 @@ object BeamConfig {
         }
 
         case class MaxDistanceLimitByModeInMeters(
-          bike: scala.Int
+          bike: scala.Int,
+          walk: scala.Int
         )
 
         object MaxDistanceLimitByModeInMeters {
 
           def apply(c: com.typesafe.config.Config): BeamConfig.Beam.Routing.R5.MaxDistanceLimitByModeInMeters = {
             BeamConfig.Beam.Routing.R5.MaxDistanceLimitByModeInMeters(
-              bike = if (c.hasPathOrNull("bike")) c.getInt("bike") else 40000
+              bike = if (c.hasPathOrNull("bike")) c.getInt("bike") else 40000,
+              walk = if (c.hasPathOrNull("walk")) c.getInt("walk") else 40000
             )
           }
         }

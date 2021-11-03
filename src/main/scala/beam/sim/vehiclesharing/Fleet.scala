@@ -62,6 +62,7 @@ case class FixedNonReservingFleetByTAZ(
   vehicleManagerId: Id[VehicleManager],
   parkingFilePath: String,
   config: SharedFleets$Elm.FixedNonReservingFleetByTaz,
+  agentSampleSizeAsFractionOfPopulation: Double,
   repConfig: Option[BeamConfig.Beam.Agentsim.Agents.Vehicles.SharedFleets$Elm.Reposition]
 ) extends FleetType
     with LazyLogging {
@@ -83,6 +84,20 @@ case class FixedNonReservingFleetByTAZ(
     config.vehiclesSharePerTAZFromCSV match {
       case Some(fileName) =>
         logger.info(s"Reading shared vehicle fleet from file: $fileName")
+<<<<<<< HEAD
+        FleetUtils.readCSV(fileName).foreach {
+          case (idTaz, coord, share) =>
+            val fleetShare =
+              MathUtils.roundUniformly(share * config.fleetSize * agentSampleSizeAsFractionOfPopulation).toInt
+            (0 until fleetShare).foreach(
+              _ =>
+                initialLocation
+                  .append(beamServices.beamScenario.tazTreeMap.getTAZ(Id.create(idTaz, classOf[TAZ])) match {
+                    case Some(taz) => TAZTreeMap.randomLocationInTAZ(taz, rand)
+                    case _         => coord
+                  })
+            )
+=======
         FleetUtils.readCSV(fileName).foreach { case (idTaz, coord, share) =>
           val fleetShare: Int = MathUtils.roundUniformly(share * config.fleetSize).toInt
           (0 until fleetShare).foreach(_ =>
@@ -92,13 +107,14 @@ case class FixedNonReservingFleetByTAZ(
                 case _                                                  => coord
               })
           )
+>>>>>>> origin/hl/parking-zones-at-link-level
         }
       case _ =>
         logger.info(s"Random distribution of shared vehicle fleet i.e. no file or shares by Taz")
         // fall back to a uniform distribution
         initialLocation.clear()
         val tazArray = beamServices.beamScenario.tazTreeMap.getTAZs.toArray
-        (1 to config.fleetSize).foreach { _ =>
+        (1 to Math.round(config.fleetSize * agentSampleSizeAsFractionOfPopulation).toInt).foreach { _ =>
           val taz = tazArray(rand.nextInt(tazArray.length))
           initialLocation.prepend(TAZTreeMap.randomLocationInTAZ(taz, rand))
         }

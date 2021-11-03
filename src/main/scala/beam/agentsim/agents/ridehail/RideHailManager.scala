@@ -1747,6 +1747,7 @@ class RideHailManager(
     val futureRepoRoutingMap = mutable.Map[Id[BeamVehicle], Future[RoutingRequest]]()
 
     for ((vehicleId, destinationLocation) <- repositionVehicles) {
+
       rideHailManagerHelper.getServiceStatusOf(vehicleId) match {
         case _ =>
           val rideHailAgentLocation = rideHailManagerHelper.getRideHailAgentLocation(vehicleId)

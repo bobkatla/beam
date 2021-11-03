@@ -17,6 +17,7 @@ object DrivingCost {
   ): Double = {
     val consumption: Double = vehicleType.primaryFuelConsumptionInJoulePerMeter
     (distance * consumption * fuelPrice) / 1000000 + distance * vehicleType.monetaryCostPerMeter + travelTime * vehicleType.monetaryCostPerSecond
+
   }
 
 }

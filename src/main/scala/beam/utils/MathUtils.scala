@@ -130,6 +130,7 @@ object MathUtils {
     Math.round(floor + addition)
   }
 
+
   /**
     * Tested with not negative
     * @param x float to round
@@ -142,6 +143,7 @@ object MathUtils {
     val addition = if (random.nextDouble() < diff) 1 else 0
     Math.round(floor + addition)
   }
+
 
   def formatBytes(v: Long): String = {
     if (v < 1024) return v + " B"

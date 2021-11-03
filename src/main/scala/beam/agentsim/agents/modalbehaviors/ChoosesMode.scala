@@ -1,7 +1,11 @@
 package beam.agentsim.agents.modalbehaviors
 
 import akka.actor.{ActorRef, FSM}
+<<<<<<< HEAD
+import akka.pattern._
+=======
 import akka.pattern.pipe
+>>>>>>> origin/hl/parking-zones-at-link-level
 import beam.agentsim.agents.BeamAgent._
 import beam.agentsim.agents.PersonAgent.{ChoosingMode, _}
 import beam.agentsim.agents._
@@ -202,6 +206,7 @@ trait ChoosesMode {
       case _ =>
         self ! MobilityStatusResponse(Vector(), getCurrentTriggerIdOrGenerate)
     }
+
   }
 
   private def requestAvailableVehicles(
@@ -891,6 +896,7 @@ trait ChoosesMode {
           tripLegPairs.collect { case (trip, leg) =>
             requestAvailableVehicles(sharedVehicleFleets, geo.wgs2Utm(leg.beamLeg.travelPath.startPoint), null)
               .map((trip, leg, _))
+
           }
         )
         .map { responses: Seq[(EmbodiedBeamTrip, EmbodiedBeamLeg, MobilityStatusResponse)] =>
