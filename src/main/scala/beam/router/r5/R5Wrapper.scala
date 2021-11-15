@@ -435,13 +435,11 @@ class R5Wrapper(workerParams: R5Parameters, travelTime: TravelTime, travelTimeNo
       }
       val from = geo.snapToR5Edge(
         transportNetwork.streetLayer,
-        geo.utm2Wgs(theOrigin),
-        10e3
+        geo.utm2Wgs(theOrigin)
       )
       val to = geo.snapToR5Edge(
         transportNetwork.streetLayer,
-        geo.utm2Wgs(theDestination),
-        10e3
+        geo.utm2Wgs(theDestination)
       )
       profileRequest.fromLon = from.getX
       profileRequest.fromLat = from.getY

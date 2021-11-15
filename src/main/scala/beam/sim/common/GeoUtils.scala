@@ -25,7 +25,7 @@ case class EdgeWithCoord(edgeIndex: Int, wgsCoord: Coordinate)
 trait GeoUtils extends ExponentialLazyLogging {
 
   def localCRS: String
-  val maxRadiusForMapSearch = 1e4
+  val maxRadiusForMapSearch = 9e3
 
   lazy val utm2Wgs: GeotoolsTransformation =
     new GeotoolsTransformation(localCRS, "EPSG:4326")
