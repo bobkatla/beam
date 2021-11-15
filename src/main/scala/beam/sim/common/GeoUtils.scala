@@ -25,6 +25,7 @@ case class EdgeWithCoord(edgeIndex: Int, wgsCoord: Coordinate)
 trait GeoUtils extends ExponentialLazyLogging {
 
   def localCRS: String
+  val maxRadiusForMapSearch = 1e4
 
   lazy val utm2Wgs: GeotoolsTransformation =
     new GeotoolsTransformation(localCRS, "EPSG:4326")
@@ -58,11 +59,11 @@ trait GeoUtils extends ExponentialLazyLogging {
 
   def distLatLon2Meters(coord1: Coord, coord2: Coord): Double = distUTMInMeters(wgs2Utm(coord1), wgs2Utm(coord2))
 
-  def getNearestR5EdgeToUTMCoord(streetLayer: StreetLayer, coordUTM: Coord, maxRadius: Double = 1e5): Int = {
+  def getNearestR5EdgeToUTMCoord(streetLayer: StreetLayer, coordUTM: Coord, maxRadius: Double = maxRadiusForMapSearch): Int = {
     getNearestR5Edge(streetLayer, utm2Wgs(coordUTM), maxRadius)
   }
 
-  def getNearestR5Edge(streetLayer: StreetLayer, coordWGS: Coord, maxRadius: Double = 1e5): Int = {
+  def getNearestR5Edge(streetLayer: StreetLayer, coordWGS: Coord, maxRadius: Double = maxRadiusForMapSearch): Int = {
     val theSplit = getR5Split(streetLayer, coordWGS, maxRadius, StreetMode.WALK)
     if (theSplit == null) {
       val closestEdgesToTheCorners = ProfilingUtils
@@ -93,7 +94,7 @@ trait GeoUtils extends ExponentialLazyLogging {
   def snapToR5Edge(
     streetLayer: StreetLayer,
     coordWGS: Coord,
-    maxRadius: Double = 1e5,
+    maxRadius: Double = maxRadiusForMapSearch,
     streetMode: StreetMode = StreetMode.WALK
   ): Coord = {
     val theSplit = getR5Split(streetLayer, coordWGS, maxRadius, streetMode)
@@ -107,7 +108,7 @@ trait GeoUtils extends ExponentialLazyLogging {
   def getR5Split(
     streetLayer: StreetLayer,
     coord: Coord,
-    maxRadius: Double = 1e5,
+    maxRadius: Double = maxRadiusForMapSearch,
     streetMode: StreetMode = StreetMode.WALK
   ): Split = {
     var radius = 10.0
@@ -118,6 +119,9 @@ trait GeoUtils extends ExponentialLazyLogging {
     }
     if (theSplit == null) {
       theSplit = streetLayer.findSplit(coord.getY, coord.getX, maxRadius, streetMode)
+    }
+    if (theSplit == null) {
+      logger.warn(s"Can't split coord $coord with max radius $maxRadius with street mode $streetMode")
     }
     theSplit
   }
