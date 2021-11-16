@@ -9,6 +9,8 @@ import beam.sim.common.GeoUtils
 import beam.sim.config.BeamConfig
 import beam.utils.csv.GenericCsvReader
 import beam.utils.matsim_conversion.MatsimPlanConversion.IdOps
+import com.conveyal.r5.streets.StreetLayer
+import com.typesafe.scalalogging.LazyLogging
 import org.matsim.api.core.v01.population._
 import org.matsim.api.core.v01.{Coord, Id}
 import org.matsim.core.population.PopulationUtils
@@ -21,7 +23,7 @@ import scala.util.Random
 /**
   * @author Dmitry Openkov
   */
-object PayloadPlansConverter {
+object PayloadPlansConverter extends LazyLogging {
 
   val freightIdPrefix = "freight"
 
@@ -35,11 +37,18 @@ object PayloadPlansConverter {
 
   def readFreightTours(
     freightConfig: BeamConfig.Beam.Agentsim.Agents.Freight,
-    geoUtils: GeoUtils
+    geoUtils: GeoUtils,
+    streetLayer: StreetLayer
   ): Map[Id[FreightTour], FreightTour] = {
 
-    GenericCsvReader
-      .readAsSeq[FreightTour](freightConfig.toursFilePath) { row =>
+    def utmCoordinateIsReachable(utmCoord: Coord): Boolean = {
+      val wsgCoord = geoUtils.utm2Wgs(utmCoord)
+      val theSplit = geoUtils.getR5Split(streetLayer, wsgCoord: Coord)
+      theSplit != null
+    }
+
+    val maybeTours = GenericCsvReader
+      .readAsSeq[Option[FreightTour]](freightConfig.toursFilePath) { row =>
         def get(key: String): String = getRowValue(freightConfig.toursFilePath, row, key)
         // tourId,departureTimeInSec,departureLocation_zone,maxTourDurationInSec,departureLocationX,departureLocationY
         val tourId: Id[FreightTour] = get("tour_id").createId[FreightTour]
@@ -55,23 +64,40 @@ object PayloadPlansConverter {
             location
           }
         }
-        FreightTour(
-          tourId,
-          departureTimeInSec,
-          departureLocationUTM,
-          maxTourDurationInSec
-        )
+        if (utmCoordinateIsReachable(departureLocationUTM)) {
+          Some(
+            FreightTour(
+              tourId,
+              departureTimeInSec,
+              departureLocationUTM,
+              maxTourDurationInSec
+            )
+          )
+        } else {
+          logger.error(f"Following freight tour row discarded because departure location is not reachable: $row")
+          None
+        }
       }
+
+    maybeTours.flatten
       .groupBy(_.tourId)
       .mapValues(_.head)
   }
 
   def readPayloadPlans(
     freightConfig: BeamConfig.Beam.Agentsim.Agents.Freight,
-    geoUtils: GeoUtils
+    geoUtils: GeoUtils,
+    streetLayer: StreetLayer
   ): Map[Id[PayloadPlan], PayloadPlan] = {
-    GenericCsvReader
-      .readAsSeq[PayloadPlan](freightConfig.plansFilePath) { row =>
+
+    def utmCoordinateIsReachable(utmCoord: Coord): Boolean = {
+      val wsgCoord = geoUtils.utm2Wgs(utmCoord)
+      val theSplit = geoUtils.getR5Split(streetLayer, wsgCoord: Coord)
+      theSplit != null
+    }
+
+    val maybePlans = GenericCsvReader
+      .readAsSeq[Option[PayloadPlan]](freightConfig.plansFilePath) { row =>
         def get(key: String): String = getRowValue(freightConfig.plansFilePath, row, key)
         // payloadId,sequenceRank,tourId,payloadType,weightInlb,requestType,locationZone,
         // estimatedTimeOfArrivalInSec,arrivalTimeWindowInSec_lower,arrivalTimeWindowInSec_upper,
@@ -102,20 +128,28 @@ object PayloadPlansConverter {
               s"Value of requestType $wrongValue is unexpected."
             )
         }
-
-        PayloadPlan(
-          get("payloadId").createId,
-          get("sequenceRank").toDouble.toInt,
-          get("tourId").createId,
-          get("payloadType").createId[PayloadType],
-          weightInKg,
-          requestType,
-          locationUTM,
-          get("estimatedTimeOfArrivalInSec").toDouble.toInt,
-          arrivalTimeWindowInSec,
-          get("operationDurationInSec").toDouble.toInt
-        )
+        if (utmCoordinateIsReachable(locationUTM)) {
+          Some(
+            PayloadPlan(
+              get("payloadId").createId,
+              get("sequenceRank").toDouble.toInt,
+              get("tourId").createId,
+              get("payloadType").createId[PayloadType],
+              weightInKg,
+              requestType,
+              locationUTM,
+              get("estimatedTimeOfArrivalInSec").toDouble.toInt,
+              arrivalTimeWindowInSec,
+              get("operationDurationInSec").toDouble.toInt
+            )
+          )
+        } else {
+          logger.error(f"Following freight plan row discarded because zone location is not reachable: $row")
+          None
+        }
       }
+
+    maybePlans.flatten
       .groupBy(_.payloadId)
       .mapValues(_.head)
   }
@@ -123,24 +157,33 @@ object PayloadPlansConverter {
   def readFreightCarriers(
     freightConfig: BeamConfig.Beam.Agentsim.Agents.Freight,
     geoUtils: GeoUtils,
-    tours: Map[Id[FreightTour], FreightTour],
-    plans: Map[Id[PayloadPlan], PayloadPlan],
+    streetLayer: StreetLayer,
+    allTours: Map[Id[FreightTour], FreightTour],
+    allPlans: Map[Id[PayloadPlan], PayloadPlan],
     vehicleTypes: Map[Id[BeamVehicleType], BeamVehicleType],
     rnd: Random
   ): IndexedSeq[FreightCarrier] = {
+
+    val existingTours: Set[Id[FreightTour]] = allTours.keySet.intersect(allPlans.map(_._2.tourId).toSet)
+    val plans: Map[Id[PayloadPlan], PayloadPlan] = allPlans.filter { case (_, plan) =>
+      existingTours.contains(plan.tourId)
+    }
+    val tours: Map[Id[FreightTour], FreightTour] = allTours.filter { case (_, tour) =>
+      existingTours.contains(tour.tourId)
+    }
 
     case class FreightCarrierRow(
       carrierId: Id[FreightCarrier],
       tourId: Id[FreightTour],
       vehicleId: Id[BeamVehicle],
       vehicleTypeId: Id[BeamVehicleType],
-      warehouseLocation: Coord
+      warehouseLocationUTM: Coord
     )
 
     def createCarrierVehicles(
       carrierId: Id[FreightCarrier],
       carrierRows: IndexedSeq[FreightCarrierRow],
-      warehouseLocation: Coord
+      warehouseLocationUTM: Coord
     ): IndexedSeq[BeamVehicle] = {
       val vehicles: IndexedSeq[BeamVehicle] = carrierRows
         .groupBy(_.vehicleId)
@@ -156,15 +199,15 @@ object PayloadPlansConverter {
             throw new IllegalArgumentException(
               s"Vehicle type ${firstRow.vehicleTypeId} for vehicle $vehicleId has no payloadCapacityInKg defined"
             )
-          createFreightVehicle(vehicleId, vehicleType, carrierId, warehouseLocation, rnd.nextInt())
+          createFreightVehicle(vehicleId, vehicleType, carrierId, warehouseLocationUTM, rnd.nextInt())
         }
         .toIndexedSeq
       vehicles
     }
 
     def createCarrier(carrierId: Id[FreightCarrier], carrierRows: IndexedSeq[FreightCarrierRow]) = {
-      val warehouseLocation: Coord = carrierRows.head.warehouseLocation
-      val vehicles: scala.IndexedSeq[BeamVehicle] = createCarrierVehicles(carrierId, carrierRows, warehouseLocation)
+      val warehouseLocationUTM: Coord = carrierRows.head.warehouseLocationUTM
+      val vehicles: scala.IndexedSeq[BeamVehicle] = createCarrierVehicles(carrierId, carrierRows, warehouseLocationUTM)
       val vehicleMap: Map[Id[BeamVehicle], BeamVehicle] = vehicles.map(vehicle => vehicle.id -> vehicle).toMap
 
       val tourMap: Map[Id[BeamVehicle], IndexedSeq[FreightTour]] = carrierRows
@@ -172,7 +215,7 @@ object PayloadPlansConverter {
         .mapValues { rows =>
           rows
             //setting the tour warehouse location to be the carrier warehouse location
-            .map(row => tours(row.tourId).copy(warehouseLocation = warehouseLocation))
+            .map(row => tours(row.tourId).copy(warehouseLocationUTM = warehouseLocationUTM))
             .sortBy(_.departureTimeInSec)
         }
 
@@ -186,27 +229,45 @@ object PayloadPlansConverter {
       FreightCarrier(carrierId, tourMap, payloadMap, vehicleMap, plansPerTour)
     }
 
-    val rows = GenericCsvReader.readAsSeq[FreightCarrierRow](freightConfig.carriersFilePath) { row =>
-      def get(key: String): String = getRowValue(freightConfig.carriersFilePath, row, key)
-      // carrierId,tourId,vehicleId,vehicleTypeId,depot_zone,depot_zone_x,depot_zone_y
-      val carrierId: Id[FreightCarrier] = s"$freightIdPrefix-carrier-${get("carrierId")}".createId
-      val tourId: Id[FreightTour] = get("tourId").createId
-      val vehicleId: Id[BeamVehicle] = Id.createVehicleId(s"$freightIdPrefix-vehicle-${get("vehicleId")}")
-      val vehicleTypeId: Id[BeamVehicleType] = get("vehicleTypeId").createId
-      val warehouseLocationUTM = {
-        val x = get("depot_zone_x").toDouble
-        val y = get("depot_zone_y").toDouble
-        val location = new Coord(x, y)
-        if (freightConfig.convertWgs2Utm) {
-          geoUtils.wgs2Utm(location)
-        } else {
-          location
-        }
-      }
-      FreightCarrierRow(carrierId, tourId, vehicleId, vehicleTypeId, warehouseLocationUTM)
+    def utmCoordinateIsReachable(utmCoord: Coord): Boolean = {
+      val wsgCoord = geoUtils.utm2Wgs(utmCoord)
+      val theSplit = geoUtils.getR5Split(streetLayer, wsgCoord: Coord)
+      theSplit != null
     }
 
-    val carriersWithFleet = rows
+    val maybeCarrierRows = GenericCsvReader.readAsSeq[Option[FreightCarrierRow]](freightConfig.carriersFilePath) {
+      row =>
+        def get(key: String): String = getRowValue(freightConfig.carriersFilePath, row, key)
+        // carrierId,tourId,vehicleId,vehicleTypeId,depot_zone,depot_zone_x,depot_zone_y
+        val carrierId: Id[FreightCarrier] = s"$freightIdPrefix-carrier-${get("carrierId")}".createId
+        val tourId: Id[FreightTour] = get("tourId").createId
+        val vehicleId: Id[BeamVehicle] = Id.createVehicleId(s"$freightIdPrefix-vehicle-${get("vehicleId")}")
+        val vehicleTypeId: Id[BeamVehicleType] = get("vehicleTypeId").createId
+        val warehouseLocationUTM = {
+          val x = get("depot_zone_x").toDouble
+          val y = get("depot_zone_y").toDouble
+          val location = new Coord(x, y)
+          if (freightConfig.convertWgs2Utm) {
+            geoUtils.wgs2Utm(location)
+          } else {
+            location
+          }
+        }
+
+        if (!existingTours.contains(tourId)) {
+          logger.error(f"Following freight carrier row discarded because tour $tourId was filtered out: $row")
+          None
+        } else if (!utmCoordinateIsReachable(warehouseLocationUTM)) {
+          logger.error(
+            f"Following freight carrier row discarded because warehouse location ($warehouseLocationUTM) is not reachable: $row"
+          )
+          None
+        } else {
+          Some(FreightCarrierRow(carrierId, tourId, vehicleId, vehicleTypeId, warehouseLocationUTM))
+        }
+    }
+
+    val carriersWithFleet = maybeCarrierRows.flatten
       .groupBy(_.carrierId)
       .map { case (carrierId, carrierRows) =>
         createCarrier(carrierId, carrierRows)
@@ -291,7 +352,7 @@ object PayloadPlansConverter {
   ): Plan = {
     val allToursPlanElements = tours.flatMap { tour =>
       val tourInitialActivity =
-        createActivity("Warehouse", tour.warehouseLocation, tour.departureTimeInSec, geoConverter)
+        createActivity("Warehouse", tour.warehouseLocationUTM, tour.departureTimeInSec, geoConverter)
       val firstLeg: Leg = createLeg(tour.departureTimeInSec)
 
       val plans: IndexedSeq[PayloadPlan] = plansPerTour.get(tour.tourId) match {
@@ -301,7 +362,7 @@ object PayloadPlansConverter {
       val planElements: IndexedSeq[PlanElement] = plans.flatMap { plan =>
         val activityEndTime = plan.estimatedTimeOfArrivalInSec + plan.operationDurationInSec
         val activityType = plan.requestType.toString
-        val activity = createActivity(activityType, plan.location, activityEndTime, geoConverter)
+        val activity = createActivity(activityType, plan.locationUTM, activityEndTime, geoConverter)
         val leg: Leg = createLeg(activityEndTime)
         Seq(activity, leg)
       }
@@ -309,7 +370,7 @@ object PayloadPlansConverter {
       tourInitialActivity +: firstLeg +: planElements
     }
 
-    val finalActivity = createActivity("Warehouse", tours.head.warehouseLocation, -1, geoConverter)
+    val finalActivity = createActivity("Warehouse", tours.head.warehouseLocationUTM, -1, geoConverter)
     val allPlanElements: IndexedSeq[PlanElement] = allToursPlanElements :+ finalActivity
 
     val currentPlan = PopulationUtils.createPlan(person)

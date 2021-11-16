@@ -46,7 +46,7 @@ class PayloadPlansConverterSpec extends AnyWordSpecLike with Matchers {
       payloadPlans should have size 8
       val plan7 = payloadPlans("payload-7".createId)
       plan7.payloadId should be("payload-7".createId)
-      plan7.location should be(new Coord(169624.51213105154, 3272.492326224974))
+      plan7.locationUTM should be(new Coord(169624.51213105154, 3272.492326224974))
       plan7.estimatedTimeOfArrivalInSec should be(18000)
       plan7.arrivalTimeWindowInSec should be(1800)
       plan7.operationDurationInSec should be(500)
@@ -63,7 +63,7 @@ class PayloadPlansConverterSpec extends AnyWordSpecLike with Matchers {
       val tour3 = tours("tour-3".createId)
       tour3.tourId should be("tour-3".createId)
       tour3.departureTimeInSec should be(15000)
-      tour3.warehouseLocation should be(new Coord(170308.4, 2964.6))
+      tour3.warehouseLocationUTM should be(new Coord(170308.4, 2964.6))
       tour3.maxTourDurationInSec should be(36000)
     }
 

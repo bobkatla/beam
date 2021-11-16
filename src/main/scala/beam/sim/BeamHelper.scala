@@ -290,12 +290,20 @@ trait BeamHelper extends LazyLogging {
     val freightCarriers = if (beamConfig.beam.agentsim.agents.freight.enabled) {
       val geoUtils = new GeoUtilsImpl(beamConfig)
       val rand: Random = new Random(beamConfig.matsim.modules.global.randomSeed)
-      val tours = PayloadPlansConverter.readFreightTours(beamConfig.beam.agentsim.agents.freight, geoUtils)
-      val plans =
-        PayloadPlansConverter.readPayloadPlans(beamConfig.beam.agentsim.agents.freight, geoUtils)
+      val tours = PayloadPlansConverter.readFreightTours(
+        beamConfig.beam.agentsim.agents.freight,
+        geoUtils,
+        networkCoordinator.transportNetwork.streetLayer
+      )
+      val plans = PayloadPlansConverter.readPayloadPlans(
+        beamConfig.beam.agentsim.agents.freight,
+        geoUtils,
+        networkCoordinator.transportNetwork.streetLayer
+      )
       PayloadPlansConverter.readFreightCarriers(
         beamConfig.beam.agentsim.agents.freight,
         geoUtils,
+        networkCoordinator.transportNetwork.streetLayer,
         tours,
         plans,
         vehicleTypes,
@@ -867,12 +875,12 @@ trait BeamHelper extends LazyLogging {
       .flatMap(_.fleet)
       .foreach { case (id, vehicle) => beamScenario.privateVehicles.put(id, vehicle) }
 
-    val convertWgs2Utm = beamConfig.beam.exchange.scenario.convertWgs2Utm
+    //    val convertWgs2Utm = beamConfig.beam.exchange.scenario.convertWgs2Utm
     val plans: IndexedSeq[(Household, Plan)] = PayloadPlansConverter.generatePopulation(
       beamScenario.freightCarriers,
       population.getFactory,
       households.getFactory,
-      if (convertWgs2Utm) Some(geoUtils) else None
+      None // if (convertWgs2Utm) Some(geoUtils) else None
     )
 
     val allowedModes = Seq(BeamMode.CAR.value)
