@@ -95,6 +95,10 @@ trait GeoUtils extends ExponentialLazyLogging {
     new Coord(theEdge.getGeometry.getCoordinate.x, theEdge.getGeometry.getCoordinate.y)
   }
 
+  def splitToCoord(theSplit: Split): Coord = {
+    new Coord(theSplit.fixedLon.toDouble / 1.0e7, theSplit.fixedLat.toDouble / 1.0e7)
+  }
+
   def snapToR5Edge(
     streetLayer: StreetLayer,
     coordWGS: Coord,
@@ -105,7 +109,7 @@ trait GeoUtils extends ExponentialLazyLogging {
     if (theSplit == null) {
       coordWGS
     } else {
-      new Coord(theSplit.fixedLon.toDouble / 1.0e7, theSplit.fixedLat.toDouble / 1.0e7)
+      splitToCoord(theSplit)
     }
   }
 

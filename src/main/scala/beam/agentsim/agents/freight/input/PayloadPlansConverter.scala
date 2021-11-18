@@ -35,17 +35,23 @@ object PayloadPlansConverter extends LazyLogging {
     }
   }
 
+  private def findClosestPointOnMap(utmCoord: Coord, geoUtils: GeoUtils, streetLayer: StreetLayer): Option[Coord] = {
+    val wsgCoord = geoUtils.utm2Wgs(utmCoord)
+    val theSplit = geoUtils.getR5Split(streetLayer, wsgCoord)
+    if (theSplit == null) {
+      None
+    } else {
+      val wgsPointOnMap = geoUtils.splitToCoord(theSplit)
+      val utmCoord = geoUtils.wgs2Utm(wgsPointOnMap)
+      Some(utmCoord)
+    }
+  }
+
   def readFreightTours(
     freightConfig: BeamConfig.Beam.Agentsim.Agents.Freight,
     geoUtils: GeoUtils,
     streetLayer: StreetLayer
   ): Map[Id[FreightTour], FreightTour] = {
-
-    def utmCoordinateIsReachable(utmCoord: Coord): Boolean = {
-      val wsgCoord = geoUtils.utm2Wgs(utmCoord)
-      val theSplit = geoUtils.getR5Split(streetLayer, wsgCoord: Coord)
-      theSplit != null
-    }
 
     val maybeTours = GenericCsvReader
       .readAsSeq[Option[FreightTour]](freightConfig.toursFilePath) { row =>
@@ -64,18 +70,20 @@ object PayloadPlansConverter extends LazyLogging {
             location
           }
         }
-        if (utmCoordinateIsReachable(departureLocationUTM)) {
-          Some(
-            FreightTour(
-              tourId,
-              departureTimeInSec,
-              departureLocationUTM,
-              maxTourDurationInSec
+
+        findClosestPointOnMap(departureLocationUTM, geoUtils, streetLayer) match {
+          case Some(departureLocationUTMOnMap) =>
+            Some(
+              FreightTour(
+                tourId,
+                departureTimeInSec,
+                departureLocationUTMOnMap,
+                maxTourDurationInSec
+              )
             )
-          )
-        } else {
-          logger.error(f"Following freight tour row discarded because departure location is not reachable: $row")
-          None
+          case None =>
+            logger.error(f"Following freight tour row discarded because departure location is not reachable: $row")
+            None
         }
       }
 
@@ -89,12 +97,6 @@ object PayloadPlansConverter extends LazyLogging {
     geoUtils: GeoUtils,
     streetLayer: StreetLayer
   ): Map[Id[PayloadPlan], PayloadPlan] = {
-
-    def utmCoordinateIsReachable(utmCoord: Coord): Boolean = {
-      val wsgCoord = geoUtils.utm2Wgs(utmCoord)
-      val theSplit = geoUtils.getR5Split(streetLayer, wsgCoord: Coord)
-      theSplit != null
-    }
 
     val maybePlans = GenericCsvReader
       .readAsSeq[Option[PayloadPlan]](freightConfig.plansFilePath) { row =>
@@ -128,24 +130,26 @@ object PayloadPlansConverter extends LazyLogging {
               s"Value of requestType $wrongValue is unexpected."
             )
         }
-        if (utmCoordinateIsReachable(locationUTM)) {
-          Some(
-            PayloadPlan(
-              get("payloadId").createId,
-              get("sequenceRank").toDouble.toInt,
-              get("tourId").createId,
-              get("payloadType").createId[PayloadType],
-              weightInKg,
-              requestType,
-              locationUTM,
-              get("estimatedTimeOfArrivalInSec").toDouble.toInt,
-              arrivalTimeWindowInSec,
-              get("operationDurationInSec").toDouble.toInt
+
+        findClosestPointOnMap(locationUTM, geoUtils, streetLayer) match {
+          case Some(locationUTMOnMap) =>
+            Some(
+              PayloadPlan(
+                get("payloadId").createId,
+                get("sequenceRank").toDouble.toInt,
+                get("tourId").createId,
+                get("payloadType").createId[PayloadType],
+                weightInKg,
+                requestType,
+                locationUTMOnMap,
+                get("estimatedTimeOfArrivalInSec").toDouble.toInt,
+                arrivalTimeWindowInSec,
+                get("operationDurationInSec").toDouble.toInt
+              )
             )
-          )
-        } else {
-          logger.error(f"Following freight plan row discarded because zone location is not reachable: $row")
-          None
+          case None =>
+            logger.error(f"Following freight plan row discarded because zone location is not reachable: $row")
+            None
         }
       }
 
@@ -229,12 +233,6 @@ object PayloadPlansConverter extends LazyLogging {
       FreightCarrier(carrierId, tourMap, payloadMap, vehicleMap, plansPerTour)
     }
 
-    def utmCoordinateIsReachable(utmCoord: Coord): Boolean = {
-      val wsgCoord = geoUtils.utm2Wgs(utmCoord)
-      val theSplit = geoUtils.getR5Split(streetLayer, wsgCoord: Coord)
-      theSplit != null
-    }
-
     val maybeCarrierRows = GenericCsvReader.readAsSeq[Option[FreightCarrierRow]](freightConfig.carriersFilePath) {
       row =>
         def get(key: String): String = getRowValue(freightConfig.carriersFilePath, row, key)
@@ -257,13 +255,16 @@ object PayloadPlansConverter extends LazyLogging {
         if (!existingTours.contains(tourId)) {
           logger.error(f"Following freight carrier row discarded because tour $tourId was filtered out: $row")
           None
-        } else if (!utmCoordinateIsReachable(warehouseLocationUTM)) {
-          logger.error(
-            f"Following freight carrier row discarded because warehouse location ($warehouseLocationUTM) is not reachable: $row"
-          )
-          None
         } else {
-          Some(FreightCarrierRow(carrierId, tourId, vehicleId, vehicleTypeId, warehouseLocationUTM))
+          findClosestPointOnMap(warehouseLocationUTM, geoUtils, streetLayer) match {
+            case Some(warehouseLocationUTMOnMap) =>
+              Some(FreightCarrierRow(carrierId, tourId, vehicleId, vehicleTypeId, warehouseLocationUTMOnMap))
+            case None =>
+              logger.error(
+                f"Following freight carrier row discarded because warehouse location ($warehouseLocationUTM) is not reachable: $row"
+              )
+              None
+          }
         }
     }
 
