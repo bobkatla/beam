@@ -499,12 +499,7 @@ trait BeamHelper extends LazyLogging {
       .withFallback(config)
 
     import akka.actor.{ActorSystem, DeadLetter, PoisonPill, Props}
-    import akka.cluster.singleton.{
-      ClusterSingletonManager,
-      ClusterSingletonManagerSettings,
-      ClusterSingletonProxy,
-      ClusterSingletonProxySettings
-    }
+    import akka.cluster.singleton.{ClusterSingletonManager, ClusterSingletonManagerSettings, ClusterSingletonProxy, ClusterSingletonProxySettings}
     import beam.router.ClusterWorkerRouter
     import beam.sim.monitoring.DeadLetterReplayer
 
@@ -676,7 +671,7 @@ trait BeamHelper extends LazyLogging {
     )
 
     if (beamServices.beamConfig.beam.agentsim.agents.freight.enabled) {
-      logger.info(s"Generating freight population...")
+      logger.info(s"Generating freight population from ${beamScenario.freightCarriers.size} carriers ...")
       generatePopulationForPayloadPlans(
         beamServices.beamConfig,
         beamServices.geo,
