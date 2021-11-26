@@ -75,9 +75,7 @@ class FreightReplanner(
       val tours = toursAndPlans.map(_._1)
       val plansPerTour = toursAndPlans.map { case (tour, plans) => tour.tourId -> plans }.toMap
 
-      //      val convertWgs2Utm = beamServices.beamConfig.beam.exchange.scenario.convertWgs2Utm
-      PayloadPlansConverter
-        .createPersonPlan(tours, plansPerTour, person, None)
+      PayloadPlansConverter.createPersonPlan(tours, plansPerTour, person)
     }
   }
 

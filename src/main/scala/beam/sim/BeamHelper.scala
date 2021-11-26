@@ -870,12 +870,10 @@ trait BeamHelper extends LazyLogging {
       .flatMap(_.fleet)
       .foreach { case (id, vehicle) => beamScenario.privateVehicles.put(id, vehicle) }
 
-    //    val convertWgs2Utm = beamConfig.beam.exchange.scenario.convertWgs2Utm
     val plans: IndexedSeq[(Household, Plan)] = PayloadPlansConverter.generatePopulation(
       beamScenario.freightCarriers,
       population.getFactory,
-      households.getFactory,
-      None // if (convertWgs2Utm) Some(geoUtils) else None
+      households.getFactory
     )
 
     val allowedModes = Seq(BeamMode.CAR.value)

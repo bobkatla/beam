@@ -35,7 +35,7 @@ object PayloadPlansConverter extends LazyLogging {
     }
   }
 
-  private def findClosestPointOnMap(utmCoord: Coord, geoUtils: GeoUtils, streetLayer: StreetLayer): Option[Coord] = {
+  private def findClosestUTMPointOnMap(utmCoord: Coord, geoUtils: GeoUtils, streetLayer: StreetLayer): Option[Coord] = {
     val wsgCoord = geoUtils.utm2Wgs(utmCoord)
     val theSplit = geoUtils.getR5Split(streetLayer, wsgCoord)
     if (theSplit == null) {
@@ -71,7 +71,7 @@ object PayloadPlansConverter extends LazyLogging {
           }
         }
 
-        findClosestPointOnMap(departureLocationUTM, geoUtils, streetLayer) match {
+        findClosestUTMPointOnMap(departureLocationUTM, geoUtils, streetLayer) match {
           case Some(departureLocationUTMOnMap) =>
             Some(
               FreightTour(
@@ -131,7 +131,7 @@ object PayloadPlansConverter extends LazyLogging {
             )
         }
 
-        findClosestPointOnMap(locationUTM, geoUtils, streetLayer) match {
+        findClosestUTMPointOnMap(locationUTM, geoUtils, streetLayer) match {
           case Some(locationUTMOnMap) =>
             Some(
               PayloadPlan(
@@ -256,7 +256,7 @@ object PayloadPlansConverter extends LazyLogging {
           logger.error(f"Following freight carrier row discarded because tour $tourId was filtered out: $row")
           None
         } else {
-          findClosestPointOnMap(warehouseLocationUTM, geoUtils, streetLayer) match {
+          findClosestUTMPointOnMap(warehouseLocationUTM, geoUtils, streetLayer) match {
             case Some(warehouseLocationUTMOnMap) =>
               Some(FreightCarrierRow(carrierId, tourId, vehicleId, vehicleTypeId, warehouseLocationUTMOnMap))
             case None =>
@@ -305,8 +305,7 @@ object PayloadPlansConverter extends LazyLogging {
   def generatePopulation(
     carriers: IndexedSeq[FreightCarrier],
     personFactory: PopulationFactory,
-    householdsFactory: HouseholdsFactory,
-    geoConverter: Option[GeoUtils]
+    householdsFactory: HouseholdsFactory
   ): IndexedSeq[(Household, Plan)] = {
 
     carriers.flatMap { carrier =>
@@ -314,7 +313,7 @@ object PayloadPlansConverter extends LazyLogging {
         val personId = createPersonId(vehicleId)
         val person = personFactory.createPerson(personId)
 
-        val currentPlan: Plan = createPersonPlan(tours, carrier.plansPerTour, person, geoConverter)
+        val currentPlan: Plan = createPersonPlan(tours, carrier.plansPerTour, person)
 
         person.addPlan(currentPlan)
         person.setSelectedPlan(currentPlan)
@@ -330,16 +329,15 @@ object PayloadPlansConverter extends LazyLogging {
     }
   }
 
-  private def createActivity(activityType: String, location: Coord, endTime: Int, geo: Option[GeoUtils]) = {
-    val coord = geo.map(_.wgs2Utm(location)).getOrElse(location)
-    val act = PopulationUtils.createActivityFromCoord(activityType, coord)
+  private def createFreightActivity(activityType: String, locationUTM: Coord, endTime: Int) = {
+    val act = PopulationUtils.createActivityFromCoord(activityType, locationUTM)
     if (endTime >= 0) {
       act.setEndTime(endTime)
     }
     act
   }
 
-  private def createLeg(departureTime: Int) = {
+  private def createFreightLeg(departureTime: Int) = {
     val leg = PopulationUtils.createLeg(BeamMode.CAR.value)
     leg.setDepartureTime(departureTime)
     leg
@@ -348,30 +346,30 @@ object PayloadPlansConverter extends LazyLogging {
   def createPersonPlan(
     tours: IndexedSeq[FreightTour],
     plansPerTour: Map[Id[FreightTour], IndexedSeq[PayloadPlan]],
-    person: Person,
-    geoConverter: Option[GeoUtils]
+    person: Person
   ): Plan = {
     val allToursPlanElements = tours.flatMap { tour =>
       val tourInitialActivity =
-        createActivity("Warehouse", tour.warehouseLocationUTM, tour.departureTimeInSec, geoConverter)
-      val firstLeg: Leg = createLeg(tour.departureTimeInSec)
+        createFreightActivity("Warehouse", tour.warehouseLocationUTM, tour.departureTimeInSec)
+      val firstLeg: Leg = createFreightLeg(tour.departureTimeInSec)
 
       val plans: IndexedSeq[PayloadPlan] = plansPerTour.get(tour.tourId) match {
         case Some(value) => value
         case None        => throw new IllegalArgumentException(s"Tour '${tour.tourId}' has no plans")
       }
+
       val planElements: IndexedSeq[PlanElement] = plans.flatMap { plan =>
         val activityEndTime = plan.estimatedTimeOfArrivalInSec + plan.operationDurationInSec
         val activityType = plan.requestType.toString
-        val activity = createActivity(activityType, plan.locationUTM, activityEndTime, geoConverter)
-        val leg: Leg = createLeg(activityEndTime)
+        val activity = createFreightActivity(activityType, plan.locationUTM, activityEndTime)
+        val leg: Leg = createFreightLeg(activityEndTime)
         Seq(activity, leg)
       }
 
       tourInitialActivity +: firstLeg +: planElements
     }
 
-    val finalActivity = createActivity("Warehouse", tours.head.warehouseLocationUTM, -1, geoConverter)
+    val finalActivity = createFreightActivity("Warehouse", tours.head.warehouseLocationUTM, -1)
     val allPlanElements: IndexedSeq[PlanElement] = allToursPlanElements :+ finalActivity
 
     val currentPlan = PopulationUtils.createPlan(person)
