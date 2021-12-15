@@ -162,8 +162,7 @@ class R5Wrapper(workerParams: R5Parameters, travelTime: TravelTime, travelTimeNo
               directOption.addDirect(streetSegment, profileRequest.getFromTimeDateZD)
             }
           }
-          else logger.info(s"COULDNT SPLIT, toLat: ${profileRequest.toLat}, toLon: ${profileRequest.toLon}")
-        } else logger.info(s"COULDNT SPLIT, fromLat: ${profileRequest.fromLat}, fromLon: ${profileRequest.fromLon}")
+        }
       }
       directOption.summary = directOption.generateSummary
       profileResponse.addOption(directOption)
@@ -481,8 +480,6 @@ class R5Wrapper(workerParams: R5Parameters, travelTime: TravelTime, travelTimeNo
             StreetLayer.LINK_RADIUS_METERS,
             streetRouter.streetMode
           )
-          if (destinationSplit == null)
-            logger.info(s"COULDNT SPLIT, toLat: ${profileRequest.toLat}, toLon: ${profileRequest.toLon}")
           val stopVisitor = new StopVisitor(
             transportNetwork.streetLayer,
             streetRouter.quantityToMinimize,
@@ -535,7 +532,6 @@ class R5Wrapper(workerParams: R5Parameters, travelTime: TravelTime, travelTimeNo
                 }
               }
             }
-            else logger.info(s"COULDNT SPLIT, toLat: ${profileRequest.toLat}, toLon: ${profileRequest.toLon}")
           }
         } else if (calcDirectRoute && !mainRouteRideHailTransit) {
           streetRouter.timeLimitSeconds = profileRequest.streetTime * 60
@@ -549,10 +545,8 @@ class R5Wrapper(workerParams: R5Parameters, travelTime: TravelTime, travelTimeNo
               directOption.addDirect(streetSegment, profileRequest.getFromTimeDateZD)
             }
           }
-          else logger.info(s"COULDNT SPLIT, toLat: ${profileRequest.toLat}, toLon: ${profileRequest.toLon}")
         }
       }
-      else logger.info(s"COULDNT SPLIT, fromLat: ${profileRequest.fromLat}, fromLon: ${profileRequest.fromLon}")
     }
     directOption.summary = directOption.generateSummary
     profileResponse.addOption(directOption)
@@ -597,8 +591,6 @@ class R5Wrapper(workerParams: R5Parameters, travelTime: TravelTime, travelTimeNo
           StreetLayer.LINK_RADIUS_METERS,
           streetRouter.streetMode
         )
-        if (destinationSplit == null)
-          logger.info(s"COULDNT SPLIT, fromLat: ${profileRequest.fromLat}, fromLon: ${profileRequest.fromLon}")
         val stopVisitor = new StopVisitor(
           transportNetwork.streetLayer,
           streetRouter.quantityToMinimize,
@@ -611,7 +603,7 @@ class R5Wrapper(workerParams: R5Parameters, travelTime: TravelTime, travelTimeNo
           streetRouter.route()
           egressRouters.put(legMode, streetRouter)
           egressStopsByMode.put(legMode, stopVisitor)
-        } else logger.info(s"COULDNT SPLIT, toLat: ${profileRequest.toLat}, toLon: ${profileRequest.toLon}")
+        }
       }
 
       val transitPaths = latency("getpath-transit-time", Metrics.VerboseLevel) {
