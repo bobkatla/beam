@@ -104,17 +104,13 @@ class SimpleScenarioGenerator(
   private val timeLeavingHomeGenerator: TimeLeavingHomeGenerator =
     new TimeLeavingHomeGeneratorImpl(dbInfo, residenceToWorkplaceFlowGeography)
 
-  private val stateCodeToWorkForceSampler: Map[String, WorkForceSampler] = dbInfo.states.map { stateCode =>
-    stateCode -> new WorkForceSampler(dbInfo, stateCode, new MersenneTwister(randomSeed))
-  }.toMap
-
   private val pointsGenerator: PointGenerator = new RandomPointsInGridGenerator(1.1)
 
   private val householdWithPersons: Map[Models.Household, Seq[Models.Person]] = {
     // Read households and people
     val temp: Seq[(Models.Household, Seq[Models.Person])] = SythpopReader.apply(pathToSythpopDataFolder).read().toSeq
     // Adjust population
-    PopulationCorrection.adjust(temp, stateCodeToWorkForceSampler)
+    PopulationCorrection.adjust(temp)
   }
 
   private val personIdToHousehold: Map[Models.Person, Models.Household] = householdWithPersons.flatMap {
