@@ -31,7 +31,9 @@ class PopulationReader(val pathToPopulationFile: String) extends StrictLogging {
       HouseholdReader.getCompoundHouseholdId(serialNo, householdId)
     }
     val id = GenericCsvReader.getIfNotNull(rec, "id")
-    Person(id = id, age = age, gender = gender, householdId = compoundHouseholdId)
+
+    val worker = Option(rec.get("industry")).exists(_ != "not employed")
+    Person(id = id, age = age, gender = gender, householdId = compoundHouseholdId, isWorker = worker)
   }
 }
 
