@@ -42,7 +42,7 @@ import org.matsim.api.core.v01.population.Person
 import org.matsim.core.api.experimental.events.EventsManager
 import org.matsim.vehicles.Vehicle
 
-import scala.collection.{immutable, mutable}
+import scala.collection.mutable
 import scala.language.postfixOps
 
 /**
@@ -353,8 +353,12 @@ trait DrivesVehicle[T <: DrivingData] extends BeamAgent[T] with Stash with Expon
       eventsManager.processEvent(pte)
       generateTCSEventIfPossible(pte)
 
+      val isInEnrouteState = data match {
+        case data: BasePersonData => data.enrouteData.isInEnrouteState; case _ => false
+      }
       if (!isLastLeg) {
-        if (data.hasParkingBehaviors) {
+        // we don't want to choose parking stall if vehicle is in enroute
+        if (data.hasParkingBehaviors && !isInEnrouteState) {
           holdTickAndTriggerId(tick, triggerId)
           log.debug(s"state(DrivesVehicle.Driving) $id is going to ReadyToChooseParking")
           goto(ReadyToChooseParking) using data
@@ -383,7 +387,7 @@ trait DrivesVehicle[T <: DrivingData] extends BeamAgent[T] with Stash with Expon
         var waitForConnectionToChargingPoint = false
         if (data.hasParkingBehaviors) {
           // charge vehicle
-          if (currentBeamVehicle.isBEV | currentBeamVehicle.isPHEV) {
+          if (currentBeamVehicle.isEV) {
             currentBeamVehicle.reservedStall.foreach { stall: ParkingStall =>
               stall.chargingPointType match {
                 case Some(_) =>
@@ -411,7 +415,11 @@ trait DrivesVehicle[T <: DrivingData] extends BeamAgent[T] with Stash with Expon
         holdTickAndTriggerId(tick, triggerId)
         if (waitForConnectionToChargingPoint) {
           log.debug(s"state(DrivesVehicle.Driving) $id is going to ConnectingToChargingPoint")
-          goto(ConnectingToChargingPoint) using data.asInstanceOf[T]
+          // `EnrouteRefueling` handles recharging and resetting state to original destination
+          // `ConnectingToChargingPoint` parks vehicle upon reaching destination
+          if (isInEnrouteState) {
+            goto(EnrouteRefueling) using data.asInstanceOf[T]
+          } else goto(ConnectingToChargingPoint) using data.asInstanceOf[T]
         } else {
           handleUseParkingSpot(tick, currentBeamVehicle, id, geo, eventsManager)
           self ! LastLegPassengerSchedule(triggerId)
@@ -866,8 +874,9 @@ trait DrivesVehicle[T <: DrivingData] extends BeamAgent[T] with Stash with Expon
           ScheduleTrigger(AlightVehicleTrigger(Math.max(currentLeg.endTime + 1, tick), vehicleId), self)
         )
       )
-    case _ @Event(EndingRefuelSession(tick, vehicleId, _), _) =>
+    case _ @Event(EndingRefuelSession(tick, vehicleId, triggerId), _) =>
       log.debug(s"DrivesVehicle: EndingRefuelSession. tick: $tick, vehicle: $vehicleId")
+      scheduler ! CompletionNotice(triggerId)
       stay()
   }
 
@@ -891,11 +900,11 @@ trait DrivesVehicle[T <: DrivingData] extends BeamAgent[T] with Stash with Expon
   }
 
   protected def park(parkingInquiry: ParkingInquiry): Unit = {
-    val isRefuelNeeded: Boolean = parkingInquiry.beamVehicle match {
+    val isChargingRequestOrEV: Boolean = parkingInquiry.beamVehicle match {
       case Some(vehicle) => vehicle.isPHEV || vehicle.isBEV
       case _             => parkingInquiry.parkingActivityType == ParkingActivityType.Charge
     }
-    if (isRefuelNeeded)
+    if (isChargingRequestOrEV)
       chargingNetworkManager ! parkingInquiry
     else
       parkingManager ! parkingInquiry

@@ -27,6 +27,8 @@ abstract class InfrastructureFunctions[GEO: GeoLevel](
   distanceFunction: (Coord, Coord) => Double,
   minSearchRadius: Double,
   maxSearchRadius: Double,
+  searchMaxDistanceRelativeToEllipseFoci: Double,
+  enrouteDuration: Double,
   boundingBox: Envelope,
   seed: Int
 ) extends StrictLogging {
@@ -88,8 +90,10 @@ abstract class InfrastructureFunctions[GEO: GeoLevel](
     ParkingZoneSearchConfiguration(
       minSearchRadius,
       maxSearchRadius,
+      searchMaxDistanceRelativeToEllipseFoci,
       boundingBox,
-      distanceFunction
+      distanceFunction,
+      enrouteDuration
     )
 
   def searchForParkingStall(inquiry: ParkingInquiry): Option[ParkingZoneSearch.ParkingZoneSearchResult[GEO]] = {
@@ -109,8 +113,10 @@ abstract class InfrastructureFunctions[GEO: GeoLevel](
 
     val parkingZoneSearchParams: ParkingZoneSearchParams[GEO] =
       ParkingZoneSearchParams(
+        inquiry.beamVehicle.map(_.spaceTime.loc).getOrElse(inquiry.destinationUtm.loc),
         inquiry.destinationUtm.loc,
         inquiry.parkingDuration,
+        inquiry.searchMode,
         mnlMultiplierParameters,
         zoneSearchTree,
         parkingZones,

@@ -13,7 +13,7 @@ import beam.agentsim.infrastructure.charging.ChargingPointType
 import beam.api.agentsim.agents.vehicles.BeamVehicleAfterUseFuelHook
 import beam.router.Modes
 import beam.router.Modes.BeamMode.{BIKE, CAR, CAV, WALK}
-import beam.router.model.BeamLeg
+import beam.router.model.{BeamLeg, EmbodiedBeamLeg}
 import beam.sim.BeamScenario
 import beam.sim.common.GeoUtils.TurningDirection
 import beam.utils.NetworkHelper
@@ -49,6 +49,7 @@ class BeamVehicle(
   val vehicleManagerId: AtomicReference[Id[VehicleManager]] = new AtomicReference(VehicleManager.AnyManager.managerId),
   val randomSeed: Int = 0
 ) extends ExponentialLazyLogging {
+
   private val manager: AtomicReference[Option[ActorRef]] = new AtomicReference(None)
   def setManager(value: Option[ActorRef]): Unit = this.manager.set(value)
   def getManager: Option[ActorRef] = this.manager.get
@@ -414,6 +415,8 @@ class BeamVehicle(
   def isPHEV: Boolean =
     beamVehicleType.primaryFuelType == Electricity && beamVehicleType.secondaryFuelType.contains(Gasoline)
 
+  def isEV: Boolean = isBEV || isPHEV
+
   /**
     * Initialize the vehicle's fuel levels to a given state of charge (between 0.0 and 1.0).
     *
@@ -661,4 +664,5 @@ object BeamVehicle {
       case _ => 1.0
     }
   }
+
 }
