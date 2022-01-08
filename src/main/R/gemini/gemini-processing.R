@@ -333,6 +333,8 @@ write.csv(
   quote=FALSE,
   na="")
 
+b <- rse100_3[startsWith(parkingZoneId, "AO"),.(fuel3=mean(fuel)),by=.(chargingPointType)]
+a <- rse100[startsWith(parkingZoneId, "AO"),.(fuel2=mean(fuel)),by=.(chargingPointType)]
 
 infra16 <- readCsv(pp(workDir, "/gemini-base-scenario-3-parking-charging-infra16.csv"))
 infra16_charging <- infra16[chargingPointType!="NoCharger"]
@@ -350,7 +352,6 @@ write.csv(
   quote=FALSE,
   na="")
 
-
 infra16_parking <- infra16[chargingPointType=="NoCharger"]
 write.csv(
   infra16_parking,
@@ -358,52 +359,6 @@ write.csv(
   row.names=FALSE,
   quote=FALSE,
   na="")
-
-b <- rse100_3[startsWith(parkingZoneId, "AO"),.(fuel3=mean(fuel)),by=.(chargingPointType)]
-a <- rse100[startsWith(parkingZoneId, "AO"),.(fuel2=mean(fuel)),by=.(chargingPointType)]
-
-#####
-
-sc4 <- readCsv(pp(workDir, "/2021Oct29/BATCH1/events/filtered.3.events.SC4.csv.gz"))
-sc4Bis <- readCsv(pp(workDir, "/2021Oct29/BATCH1/events/filtered.3.events.SC4Bis.csv.gz"))
-
-ref4 <- sc4[type=="RefuelSessionEvent"]
-ref4Bis <- sc4[type=="RefuelSessionEvent"]
-
-mean(ref4[time >= 0 && time < 7 * 3600]$fuel)
-mean(ref4[time > 22]$fuel)
-
-test1 <- ref4[grepl("emergency", vehicle)]
-test2 <- ref4Bis[grepl("emergency", vehicle)]
-
-
-###
-
-events <- readCsv(pp(workDir, "/2021Oct29/BATCH1/events/filtered.0.events.SC4Bis5.csv.gz"))
-events.sim <- readCsv(pp(workDir, "/2021Oct29/BATCH1/sim/events.sim.SC4Bis5.csv.gz"))
-#temp <- readCsv(pp(workDir, "/2021Oct29/BATCH1/sim/events.sim.SC4Bis2.csv.gz"))
-
-chargingEvents <- events.sim[,-c("type", "IDX")]
-nrow(chargingEvents[duration==0])
-nrow(chargingEvents[duration>0])
-
-chargingEvents[duration<1800&duration>0] %>% ggplot(aes(duration)) + 
-  theme_classic() +
-  geom_histogram(bins = 30)
-
-test <- chargingEvents[duration==0] 
-test$kindOfVehicle <- "real"
-test[startsWith(vehicle,"VirtualCar")]$kindOfVehicle <- "virtual"
-
-
-write.csv(
-  chargingEvents[duration>0],
-  file = pp(workDir, "/2021Oct29/BATCH1/chargingEventsFullBayArea.csv.gz"),
-  row.names=FALSE,
-  quote=FALSE,
-  na="0")
-
-
 
 
 

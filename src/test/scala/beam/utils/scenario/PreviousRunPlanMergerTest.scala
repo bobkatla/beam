@@ -118,6 +118,37 @@ class PreviousRunPlanMergerTest extends AnyWordSpecLike with Matchers {
           createPlanElement("7", 0, 49501),
           createPlanElement("7", 1, 49502), //old as unique
           createPlanElement("6", 2, 49508), //old as unique
+          createPlanElement("0", 0, 49499, planSelected = false),
+          createPlanElement("0", 1, 49500, planSelected = false),
+          createPlanElement("3", 0, 49505, planSelected = false),
+          createPlanElement("3", 1, 49506, planSelected = false),
+          createPlanElement("3", 2, 49507, planSelected = false),
+          createPlanElement("4", 2, 49508, planSelected = false),
+          createPlanElement("0", 0, 49509),
+          createPlanElement("0", 1, 49510),
+          createPlanElement("0", 2, 49511), //new merged
+          createPlanElement("3", 0, 49513),
+          createPlanElement("3", 1, 49514), //new merged
+          createPlanElement("4", 0, 49515),
+          createPlanElement("4", 1, 49516),
+          createPlanElement("4", 2, 49517), //new merged
+          createPlanElement("5", 0, 49518) //new added
+        )
+      )
+
+    }
+
+    "should return all plans merged and all new persons when fraction = 1.0" in {
+      val res = PreviousRunPlanMerger.merge(oldPlans, newPlans, 1.0, 1.0, new Random(1))
+
+      res.toSet.count(oldPlans.contains) should be(3)
+      res.toSet.count(newPlans.contains) should be(13)
+
+      res should be(
+        Seq(
+          createPlanElement("7", 0, 49501),
+          createPlanElement("7", 1, 49502), //old as unique
+          createPlanElement("6", 2, 49508), //old as unique
           createPlanElement("0", 0, 49509),
           createPlanElement("0", 1, 49510),
           createPlanElement("0", 2, 49511), //new merged
