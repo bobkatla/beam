@@ -481,6 +481,7 @@ object HOVModeTransformerTest {
   }
 
   def newLeg(personId: Int, planIndex: Int, mode: String): PlanElement = PlanElement(
+    "",
     PersonId(personId.toString),
     0,
     0.0,
@@ -505,6 +506,7 @@ object HOVModeTransformerTest {
 
   def newActivity(personId: Int, planIndex: Int, act: Act): PlanElement =
     PlanElement(
+      "",
       PersonId(personId.toString),
       0,
       0.0,
