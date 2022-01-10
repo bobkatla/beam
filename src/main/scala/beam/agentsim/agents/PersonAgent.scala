@@ -1013,8 +1013,14 @@ class PersonAgent(
         val noRefuelThresholdInMeters = totalDistance + enrouteConfig.noRefuelThresholdOffsetInMeters
         val asDriver = data.restOfCurrentTrip.head.asDriver
         val isElectric = vehicle.isEV
+        val originUtm = vehicle.spaceTime.loc
+        val lastLeg = vehicleTrip.last.beamLeg
+        val destinationUtm = beamServices.geo.wgs2Utm(lastLeg.travelPath.endPoint.loc)
         val isRefuelNeeded =
-          if (totalDistance < enrouteConfig.noRefuelAtRemainingDistanceThresholdInMeters) false
+          if (
+            totalDistance < enrouteConfig.noRefuelAtRemainingDistanceThresholdInMeters ||
+            geo.distUTMInMeters(originUtm, destinationUtm) < enrouteConfig.noRefuelAtRemainingDistanceThresholdInMeters
+          ) false
           else vehicle.isRefuelNeeded(refuelRequiredThresholdInMeters, noRefuelThresholdInMeters)
         val needEnroute = asDriver && isElectric && isRefuelNeeded
 

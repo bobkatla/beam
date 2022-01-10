@@ -113,7 +113,7 @@ abstract class InfrastructureFunctions[GEO: GeoLevel](
 
     val parkingZoneSearchParams: ParkingZoneSearchParams[GEO] =
       ParkingZoneSearchParams(
-        inquiry.beamVehicle.map(_.spaceTime.loc).getOrElse(inquiry.destinationUtm.loc),
+        inquiry.beamVehicle.map(_.spaceTime).orElse(inquiry.originUtm).getOrElse(inquiry.destinationUtm).loc,
         inquiry.destinationUtm.loc,
         inquiry.parkingDuration,
         inquiry.searchMode,
