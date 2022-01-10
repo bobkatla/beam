@@ -974,6 +974,7 @@ class PersonAgent(
             _
           )
         ) if nextLeg.asDriver =>
+      log.debug(s"ProcessingNextLegOrStartActivity.StateTimeout nextLeg.asDriver=true id = $id")
       // Declaring a function here because this case is already so convoluted that I require a return
       // statement from within.
       // TODO: Refactor.
@@ -1061,6 +1062,7 @@ class PersonAgent(
       // We've missed the bus. This occurs when something takes longer than planned (based on the
       // initial inquiry). So we replan but change tour mode to WALK_TRANSIT since we've already done our non-transit
       // portion.
+      log.debug(s"ProcessingNextLegOrStartActivity.StateTimeout Missed transit id = $id")
       log.debug("Missed transit pickup, late by {} sec", _currentTick.get - nextLeg.beamLeg.startTime)
 
       val replanningReason = getReplanningReasonFrom(data, ReservationErrorCode.MissedTransitPickup.entryName)
@@ -1081,6 +1083,7 @@ class PersonAgent(
     // TRANSIT
     case Event(StateTimeout, BasePersonData(_, _, nextLeg :: _, _, _, _, _, _, _, _, _, _, _))
         if nextLeg.beamLeg.mode.isTransit =>
+      log.debug(s"ProcessingNextLegOrStartActivity.StateTimeout isTransit id = $id")
       val resRequest = TransitReservationRequest(
         nextLeg.beamLeg.travelPath.transitStops.get.fromIdx,
         nextLeg.beamLeg.travelPath.transitStops.get.toIdx,
@@ -1092,6 +1095,7 @@ class PersonAgent(
     // RIDE_HAIL
     case Event(StateTimeout, BasePersonData(_, _, nextLeg :: tailOfCurrentTrip, _, _, _, _, _, _, _, _, _, _))
         if nextLeg.isRideHail =>
+      log.debug(s"ProcessingNextLegOrStartActivity.StateTimeout isRideHail=true id = $id")
       val legSegment = nextLeg :: tailOfCurrentTrip.takeWhile(leg => leg.beamVehicleId == nextLeg.beamVehicleId)
 
       rideHailManager ! RideHailRequest(
@@ -1120,6 +1124,7 @@ class PersonAgent(
     // TODO: Refactor so it uses literally the same code block as transit
     case Event(StateTimeout, data @ BasePersonData(_, _, nextLeg :: _, _, _, _, _, _, _, _, _, _, _))
         if nextLeg.beamLeg.startTime < _currentTick.get =>
+      log.debug(s"ProcessingNextLegOrStartActivity.StateTimeout CAV but too late id = $id")
       // We've missed the CAV. This occurs when something takes longer than planned (based on the
       // initial inquiry). So we replan but change tour mode to WALK_TRANSIT since we've already done our non-transit
       // portion.
@@ -1143,6 +1148,7 @@ class PersonAgent(
     // CAV
     // TODO: Refactor so it uses literally the same code block as transit
     case Event(StateTimeout, BasePersonData(_, _, nextLeg :: tailOfCurrentTrip, _, _, _, _, _, _, _, _, _, _)) =>
+      log.debug(s"ProcessingNextLegOrStartActivity.StateTimeout CAV id = $id")
       val legSegment = nextLeg :: tailOfCurrentTrip.takeWhile(leg => leg.beamVehicleId == nextLeg.beamVehicleId)
       val resRequest = ReservationRequest(
         legSegment.head.beamLeg,
@@ -1173,6 +1179,7 @@ class PersonAgent(
             _
           )
         ) =>
+      log.debug(s"ProcessingNextLegOrStartActivity.StateTimeout HOV id = $id")
       nextActivity(data) match {
         case Some(activity) =>
           val (tick, triggerId) = releaseTickAndTriggerId()
@@ -1243,8 +1250,10 @@ class PersonAgent(
             _
           )
         ) =>
+      log.debug(s"ProcessingNextLegOrStartActivity.StateTimeout final case id = $id")
       nextActivity(data) match {
         case Some(activity) =>
+          log.debug(s"ProcessingNextLegOrStartActivity.StateTimeout final case id with activity id = $id")
           val (tick, triggerId) = releaseTickAndTriggerId()
           def calculateActivityEndTime = {
             if (activity.getEndTime >= tick && Math.abs(activity.getEndTime) < Double.PositiveInfinity) {
@@ -1373,6 +1382,7 @@ class PersonAgent(
             hasDeparted = false
           )
         case None =>
+          log.debug(s"ProcessingNextLegOrStartActivity.StateTimeout final case id with none id = $id")
           logDebug("PersonAgent nextActivity returned None")
           val (_, triggerId) = releaseTickAndTriggerId()
           scheduler ! CompletionNotice(triggerId)
