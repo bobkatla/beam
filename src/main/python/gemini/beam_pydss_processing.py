@@ -1,6 +1,10 @@
 import os
 
+<<<<<<< HEAD
 basefolder = "~/Data/GEMINI/2021March22/370k-warmstart/output"
+=======
+basefolder = ""
+>>>>>>> develop
 beamLog_out = "{}/beamLog.out".format(basefolder)
 beamLog_out_csv = "{}/beamLog.csv".format(basefolder)
 file1 = open(beamLog_out, 'r')
