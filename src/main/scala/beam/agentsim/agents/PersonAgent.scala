@@ -889,6 +889,7 @@ class PersonAgent(
   when(EnrouteRefueling) {
     case Event(StartingRefuelSession(_, triggerId), _) =>
       releaseTickAndTriggerId()
+      log.info("StartingRefuelSession:EnrouteRefueling trigger {}", triggerId)
       scheduler ! CompletionNotice(triggerId)
       stay
     case Event(WaitingToCharge(_, _, _), _) =>
@@ -1048,9 +1049,11 @@ class PersonAgent(
           if (needEnroute) {
             (ReadyToChooseParking, tempData.copy(enrouteData = tempData.enrouteData.copy(isInEnrouteState = true)))
           } else if (nextLeg.beamLeg.mode == CAR || vehicle.isSharedVehicle) {
+            log.info("ProcessingNextLegOrStartActivity:ReleasingParkingSpot trigger {}", triggerId)
             sendCompletionNoticeAndScheduleStartLegTrigger()
             (ReleasingParkingSpot, tempData)
           } else {
+            log.info("ProcessingNextLegOrStartActivity:WaitingToDrive trigger {}", triggerId)
             sendCompletionNoticeAndScheduleStartLegTrigger()
             releaseTickAndTriggerId()
             (WaitingToDrive, tempData)
@@ -1058,8 +1061,10 @@ class PersonAgent(
         }
 
         // complete trigger only if following conditions match
-        if (nextLeg.beamLeg.endTime > lastTickOfSimulation)
+        if (nextLeg.beamLeg.endTime > lastTickOfSimulation) {
+          log.info("nextLeg.beamLeg.endTime > lastTickOfSimulation trigger {}", triggerId)
           scheduler ! CompletionNotice(triggerId)
+        }
 
         goto(stateToGo) using updatedData
       }
@@ -1467,7 +1472,7 @@ class PersonAgent(
           TriggerWithId(BoardVehicleTrigger(_, vehicleId), triggerId),
           BasePersonData(_, _, _, currentVehicle, _, _, _, _, _, _, _, _, _)
         ) if currentVehicle.nonEmpty && currentVehicle.head.equals(vehicleId) =>
-      log.debug("Person {} in state {} received Board for vehicle that he is already on, ignoring...", id, stateName)
+      log.info("Person {} in state {} received Board for vehicle that he is already on, ignoring... trigger {}", id, stateName, triggerId)
       stay() replying CompletionNotice(triggerId, Vector())
     case Event(TriggerWithId(_: BoardVehicleTrigger, _), _: BasePersonData) =>
       handleBoardOrAlightOutOfPlace
@@ -1492,6 +1497,7 @@ class PersonAgent(
       stay()
     case ev @ Event(EndingRefuelSession(_, _, triggerId), _) =>
       log.debug("myUnhandled.EndingRefuelSession: {}", ev)
+      log.info(s"PersonAgent:EndingRefuelSession trigger {}", triggerId)
       scheduler ! CompletionNotice(triggerId)
       stay()
     case Event(e, s) =>

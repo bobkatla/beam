@@ -375,7 +375,7 @@ trait DrivesVehicle[T <: DrivingData] extends BeamAgent[T] with Stash with Expon
           } else {
             nextLeg.startTime
           }
-          log.debug(s"state(DrivesVehicle.Driving) $id is going to WaitingToDrive")
+          log.info(s"state(DrivesVehicle.Driving) $id is going to WaitingToDrive trigger {}", triggerId)
           goto(WaitingToDrive) using stripLiterallyDrivingData(data)
             .withCurrentLegPassengerScheduleIndex(data.currentLegPassengerScheduleIndex + 1)
             .asInstanceOf[T] replying CompletionNotice(
@@ -875,7 +875,7 @@ trait DrivesVehicle[T <: DrivingData] extends BeamAgent[T] with Stash with Expon
         )
       )
     case _ @Event(EndingRefuelSession(tick, vehicleId, triggerId), _) =>
-      log.debug(s"DrivesVehicle: EndingRefuelSession. tick: $tick, vehicle: $vehicleId")
+      log.info(s"DrivesVehicle: EndingRefuelSession. tick: $tick, vehicle: $vehicleId trigger {}", triggerId)
       scheduler ! CompletionNotice(triggerId)
       stay()
   }

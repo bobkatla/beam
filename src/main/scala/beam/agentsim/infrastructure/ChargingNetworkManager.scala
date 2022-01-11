@@ -95,7 +95,10 @@ class ChargingNetworkManager(
     case TriggerWithId(InitializeTrigger(_), triggerId) =>
       log.info("ChargingNetworkManager is Starting!")
       Future(scheduler ? ScheduleTrigger(PlanEnergyDispatchTrigger(0), self))
-        .map(_ => CompletionNotice(triggerId, Vector()))
+        .map { _ =>
+          log.info("ChargingNetworkManager:InitializeTrigger trigger {}", triggerId)
+          CompletionNotice(triggerId, Vector())
+        }
         .pipeTo(sender())
 
     case TriggerWithId(PlanEnergyDispatchTrigger(timeBin), triggerId) =>
@@ -152,6 +155,7 @@ class ChargingNetworkManager(
         case Some(ChargingVehicle(_, _, _, _, _, _, _, _, theSender, _, _)) =>
           theSender ! EndingRefuelSession(tick, vehicle.id, triggerId)
         case _ =>
+          log.info(s"ChargingTimeOutTrigger trigger {}", triggerId)
           sender ! CompletionNotice(triggerId)
       }
 

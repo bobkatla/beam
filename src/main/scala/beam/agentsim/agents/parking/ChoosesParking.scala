@@ -217,6 +217,7 @@ trait ChoosesParking extends {
       // If the stall is co-located with our destination... then continue on but add the stall to PersonData
       if (distance <= distanceThresholdToIgnoreWalking) {
         val (_, triggerId) = releaseTickAndTriggerId()
+        log.info("distance <= distanceThresholdToIgnoreWalking trigger {}", triggerId)
         scheduler ! CompletionNotice(
           triggerId,
           Vector(ScheduleTrigger(StartLegTrigger(nextLeg.startTime, nextLeg), self))
@@ -237,6 +238,7 @@ trait ChoosesParking extends {
           case data: BasePersonData if data.enrouteData.isInEnrouteState && !isEnrouting =>
             // continue normal workflow if enroute is not possible
             val (tick, triggerId) = releaseTickAndTriggerId()
+            log.info("avoid enroute trigger {}", triggerId)
             scheduler ! CompletionNotice(
               triggerId,
               Vector(ScheduleTrigger(StartLegTrigger(nextLeg.startTime, nextLeg), self))
@@ -356,6 +358,7 @@ trait ChoosesParking extends {
       // set two car legs in schedule
       val newPassengerSchedule = PassengerSchedule().addLegs(newRestOfTrip.take(2).map(_.beamLeg))
 
+      log.info("doing Enroute trigger {}", triggerId)
       scheduler ! CompletionNotice(
         triggerId,
         Vector(

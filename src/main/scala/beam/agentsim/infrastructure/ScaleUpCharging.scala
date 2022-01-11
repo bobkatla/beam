@@ -102,10 +102,10 @@ trait ScaleUpCharging extends {
     case reply @ WaitingToCharge(_, _, _) =>
       log.debug(s"Received parking response: $reply")
     case reply @ UnhandledVehicle(_, _, triggerId) =>
-      log.debug(s"Received parking response: $reply")
+      log.info(s"Received parking response: $reply trigger {}", triggerId)
       getScheduler ! CompletionNotice(triggerId)
     case reply @ UnpluggingVehicle(_, _, triggerId) =>
-      log.debug(s"Received parking response: $reply")
+      log.info(s"Received parking response: $reply trigger {}", triggerId)
       getScheduler ! CompletionNotice(triggerId)
   }
 
