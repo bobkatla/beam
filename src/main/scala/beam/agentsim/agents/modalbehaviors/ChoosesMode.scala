@@ -728,6 +728,7 @@ trait ChoosesMode {
                 VehicleManager.getReservedFor(veh.vehicleManagerId.get).get,
                 Some(veh),
                 None,
+                Some(this.id),
                 attributes.valueOfTime,
                 getActivityEndTime(nextAct, beamServices) - leg.beamLeg.endTime,
                 reserveStall = false,
@@ -737,11 +738,8 @@ trait ChoosesMode {
           }
       }
 
-    parkingInquiries.foreach { case (_, inquiry) =>
-      if (inquiry.isChargingRequestOrEV) chargingNetworkManager ! inquiry
-      else parkingManager ! inquiry
-    }
     parkingInquiries.map { case (vehicleOnTrip, inquiry) =>
+      park(inquiry)
       inquiry.requestId -> vehicleOnTrip
     }
   }
@@ -1351,14 +1349,14 @@ trait ChoosesMode {
         .activities(data.personData.currentActivityIndex)
         .setLinkId(
           Id.createLinkId(
-            beamServices.geo.getNearestR5Edge(transportNetwork.streetLayer, origin, 10000)
+            beamServices.geo.getNearestR5Edge(transportNetwork.streetLayer, origin)
           )
         )
       _experiencedBeamPlan
         .activities(data.personData.currentActivityIndex + 1)
         .setLinkId(
           Id.createLinkId(
-            beamServices.geo.getNearestR5Edge(transportNetwork.streetLayer, destination, 10000)
+            beamServices.geo.getNearestR5Edge(transportNetwork.streetLayer, destination)
           )
         )
     }
