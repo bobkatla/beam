@@ -1049,12 +1049,8 @@ class PersonAgent(
           if (needEnroute) {
             (ReadyToChooseParking, tempData.copy(enrouteData = tempData.enrouteData.copy(isInEnrouteState = true)))
           } else if (nextLeg.beamLeg.mode == CAR || vehicle.isSharedVehicle) {
-            log.info("ProcessingNextLegOrStartActivity:ReleasingParkingSpot trigger {}", triggerId)
-            sendCompletionNoticeAndScheduleStartLegTrigger()
             (ReleasingParkingSpot, tempData)
           } else {
-            log.info("ProcessingNextLegOrStartActivity:WaitingToDrive trigger {}", triggerId)
-            sendCompletionNoticeAndScheduleStartLegTrigger()
             releaseTickAndTriggerId()
             (WaitingToDrive, tempData)
           }
@@ -1064,6 +1060,9 @@ class PersonAgent(
         if (nextLeg.beamLeg.endTime > lastTickOfSimulation) {
           log.info("nextLeg.beamLeg.endTime > lastTickOfSimulation trigger {}", triggerId)
           scheduler ! CompletionNotice(triggerId)
+        } else if (stateToGo != ReadyToChooseParking) {
+          log.info("ProcessingNextLegOrStartActivity:ReleasingParkingSpot/WaitingToDrive trigger {}", triggerId)
+          sendCompletionNoticeAndScheduleStartLegTrigger()
         }
 
         goto(stateToGo) using updatedData
@@ -1472,7 +1471,12 @@ class PersonAgent(
           TriggerWithId(BoardVehicleTrigger(_, vehicleId), triggerId),
           BasePersonData(_, _, _, currentVehicle, _, _, _, _, _, _, _, _, _)
         ) if currentVehicle.nonEmpty && currentVehicle.head.equals(vehicleId) =>
-      log.info("Person {} in state {} received Board for vehicle that he is already on, ignoring... trigger {}", id, stateName, triggerId)
+      log.info(
+        "Person {} in state {} received Board for vehicle that he is already on, ignoring... trigger {}",
+        id,
+        stateName,
+        triggerId
+      )
       stay() replying CompletionNotice(triggerId, Vector())
     case Event(TriggerWithId(_: BoardVehicleTrigger, _), _: BasePersonData) =>
       handleBoardOrAlightOutOfPlace
