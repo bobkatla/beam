@@ -11,11 +11,7 @@ import beam.agentsim.agents.modalbehaviors.ChoosesMode.ChoosesModeData
 import beam.agentsim.agents.modalbehaviors.DrivesVehicle._
 import beam.agentsim.agents.modalbehaviors.{ChoosesMode, DrivesVehicle, ModeChoiceCalculator}
 import beam.agentsim.agents.parking.ChoosesParking
-import beam.agentsim.agents.parking.ChoosesParking.{
-  handleReleasingParkingSpot,
-  ChoosingParkingSpot,
-  ReleasingParkingSpot
-}
+import beam.agentsim.agents.parking.ChoosesParking.{ChoosingParkingSpot, ReleasingParkingSpot, handleReleasingParkingSpot}
 import beam.agentsim.agents.planning.{BeamPlan, Tour}
 import beam.agentsim.agents.ridehail.RideHailManager.TravelProposal
 import beam.agentsim.agents.ridehail._
@@ -54,6 +50,7 @@ import org.matsim.core.utils.misc.Time
 import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.tailrec
 import scala.concurrent.duration._
+import scala.util.Random
 
 /**
   */
@@ -1012,10 +1009,12 @@ class PersonAgent(
 
         val tick = _currentTick.get
         val triggerId = _currentTriggerId.get
+        val rndInt = Random.nextInt()
 
         // decide next state to go, whether we need to complete the trigger, start a leg or both
         val (stateToGo, updatedData) = {
           if (needEnroute) {
+            log.info("enroute person {}", id)
             (ReadyToChooseParking, tempData.copy(enrouteData = tempData.enrouteData.copy(isInEnrouteState = true)))
           } else if (nextLeg.beamLeg.mode == CAR || vehicle.isSharedVehicle) {
             (ReleasingParkingSpot, tempData)
@@ -1028,9 +1027,11 @@ class PersonAgent(
         // Really? Also in the ReleasingParkingSpot case? How can it be that only one case releases the trigger,
         // but both of them send a CompletionNotice?
         // New: keeping the original condition for non-enroute workflow
-        if (nextLeg.beamLeg.endTime > lastTickOfSimulation)
+        if (nextLeg.beamLeg.endTime > lastTickOfSimulation) {
+          log.info("trigger/1 {} rnd {} person {}", triggerId, rndInt, id)
           scheduler ! CompletionNotice(triggerId)
-        else if (!needEnroute) {
+        } else if (!needEnroute) {
+          log.info("trigger/2 {} rnd {} person {}", triggerId, rndInt, id)
           scheduler ! CompletionNotice(
             triggerId,
             Vector(ScheduleTrigger(StartLegTrigger(tick, nextLeg.beamLeg), self))
