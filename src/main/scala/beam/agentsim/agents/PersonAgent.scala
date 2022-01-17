@@ -11,7 +11,11 @@ import beam.agentsim.agents.modalbehaviors.ChoosesMode.ChoosesModeData
 import beam.agentsim.agents.modalbehaviors.DrivesVehicle._
 import beam.agentsim.agents.modalbehaviors.{ChoosesMode, DrivesVehicle, ModeChoiceCalculator}
 import beam.agentsim.agents.parking.ChoosesParking
-import beam.agentsim.agents.parking.ChoosesParking.{ChoosingParkingSpot, ReleasingParkingSpot, handleReleasingParkingSpot}
+import beam.agentsim.agents.parking.ChoosesParking.{
+  handleReleasingParkingSpot,
+  ChoosingParkingSpot,
+  ReleasingParkingSpot
+}
 import beam.agentsim.agents.planning.{BeamPlan, Tour}
 import beam.agentsim.agents.ridehail.RideHailManager.TravelProposal
 import beam.agentsim.agents.ridehail._
@@ -862,6 +866,7 @@ class PersonAgent(
   when(EnrouteRefueling) {
     case Event(StartingRefuelSession(_, triggerId), _) =>
       releaseTickAndTriggerId()
+      log.info("trigger/3 {} person {}", triggerId, id)
       scheduler ! CompletionNotice(triggerId)
       stay
     case Event(WaitingToCharge(_, _, _), _) =>
@@ -1400,6 +1405,7 @@ class PersonAgent(
       stay()
     case ev @ Event(EndingRefuelSession(_, _, triggerId), _) =>
       log.debug("myUnhandled.EndingRefuelSession: {}", ev)
+      log.info("trigger/4 {} person {}", triggerId, id)
       scheduler ! CompletionNotice(triggerId)
       stay()
     case Event(e, s) =>

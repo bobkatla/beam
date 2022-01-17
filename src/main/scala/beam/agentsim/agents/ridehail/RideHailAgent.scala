@@ -570,6 +570,7 @@ class RideHailAgent(
       stash()
       stay()
     case _ @Event(EndingRefuelSession(_, _, triggerId), _) =>
+      log.info("trigger/1 {} person {}", triggerId, id)
       scheduler ! CompletionNotice(triggerId)
       stash()
       stay()

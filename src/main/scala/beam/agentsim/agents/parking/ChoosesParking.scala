@@ -28,6 +28,7 @@ import org.matsim.core.api.experimental.events.EventsManager
 
 import scala.concurrent.duration._
 import scala.language.postfixOps
+import scala.util.Random
 
 /**
   * BEAM
@@ -206,6 +207,7 @@ trait ChoosesParking extends {
 
   when(ChoosingParkingSpot) {
     case Event(ParkingInquiryResponse(stall, _, _), data) =>
+      val rndInt = Random.nextInt()
       val distanceThresholdToIgnoreWalking =
         beamServices.beamConfig.beam.agentsim.thresholdForWalkingInMeters
       val chargingPointMaybe = stall.chargingPointType
@@ -217,6 +219,7 @@ trait ChoosesParking extends {
       // If the stall is co-located with our destination... then continue on but add the stall to PersonData
       if (distance <= distanceThresholdToIgnoreWalking) {
         val (_, triggerId) = releaseTickAndTriggerId()
+        log.info("trigger/1 {} rnd {} person {}", triggerId, rndInt, id)
         scheduler ! CompletionNotice(
           triggerId,
           Vector(ScheduleTrigger(StartLegTrigger(nextLeg.startTime, nextLeg), self))
@@ -237,6 +240,7 @@ trait ChoosesParking extends {
           case data: BasePersonData if data.enrouteData.isInEnrouteState && !isEnrouting =>
             // continue normal workflow if enroute is not possible
             val (tick, triggerId) = releaseTickAndTriggerId()
+            log.info("trigger/2 {} rnd {} person {}", triggerId, rndInt, id)
             scheduler ! CompletionNotice(
               triggerId,
               Vector(ScheduleTrigger(StartLegTrigger(nextLeg.startTime, nextLeg), self))
@@ -356,6 +360,7 @@ trait ChoosesParking extends {
       // set two car legs in schedule
       val newPassengerSchedule = PassengerSchedule().addLegs(newRestOfTrip.take(2).map(_.beamLeg))
 
+      log.info("trigger/3 {} person {}", triggerId, id)
       scheduler ! CompletionNotice(
         triggerId,
         Vector(

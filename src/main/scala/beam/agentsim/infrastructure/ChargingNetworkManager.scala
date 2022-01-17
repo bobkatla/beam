@@ -152,6 +152,7 @@ class ChargingNetworkManager(
         case Some(ChargingVehicle(_, _, _, _, _, _, _, _, theSender, _, _)) =>
           theSender ! EndingRefuelSession(tick, vehicle.id, triggerId)
         case _ =>
+          log.info("trigger/1 {} person {}", triggerId)
           sender ! CompletionNotice(triggerId)
       }
 
