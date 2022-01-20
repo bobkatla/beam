@@ -1088,10 +1088,12 @@ class RideHailManager(
 
   def requestRoutes(tick: Int, routingRequests: Seq[RoutingRequest], triggerId: Long): Unit = {
     cacheAttempts = cacheAttempts + 1
+    val linkRadiusMeters = beamScenario.beamConfig.beam.routing.r5.linkRadiusMeters
     val routeOrEmbodyReqs = routingRequests.map { rReq =>
       routeHistory.getRoute(
-        beamServices.geo.getNearestR5EdgeToUTMCoord(transportNetwork.streetLayer, rReq.originUTM),
-        beamServices.geo.getNearestR5EdgeToUTMCoord(transportNetwork.streetLayer, rReq.destinationUTM),
+        beamServices.geo.getNearestR5EdgeToUTMCoord(transportNetwork.streetLayer, rReq.originUTM, linkRadiusMeters),
+        beamServices.geo
+          .getNearestR5EdgeToUTMCoord(transportNetwork.streetLayer, rReq.destinationUTM, linkRadiusMeters),
         rReq.departureTime
       ) match {
         case Some(rememberedRoute) =>
@@ -1680,7 +1682,8 @@ class RideHailManager(
               val locUTM = beamServices.geo.wgs2Utm(
                 beamServices.geo.snapToR5Edge(
                   beamServices.beamScenario.transportNetwork.streetLayer,
-                  beamServices.geo.utm2Wgs(parkingStall.locationUTM)
+                  beamServices.geo.utm2Wgs(parkingStall.locationUTM),
+                  beamScenario.beamConfig.beam.routing.r5.linkRadiusMeters
                 )
               )
               g.contains(locUTM.getX, locUTM.getY)
@@ -1708,16 +1711,22 @@ class RideHailManager(
 
     val insideGeofence = nonRefuelingRepositionVehicles.filter { case (vehicleId, destLoc) =>
       val rha = rideHailManagerHelper.getRideHailAgentLocation(vehicleId)
+      val linkRadiusMeters = beamScenario.beamConfig.beam.routing.r5.linkRadiusMeters
       // Get locations of R5 edge for source and destination
       val r5SrcLocUTM = beamServices.geo.wgs2Utm(
         beamServices.geo.snapToR5Edge(
           beamServices.beamScenario.transportNetwork.streetLayer,
-          beamServices.geo.utm2Wgs(rha.getCurrentLocationUTM(tick, beamServices))
+          beamServices.geo.utm2Wgs(rha.getCurrentLocationUTM(tick, beamServices)),
+          linkRadiusMeters
         )
       )
       val r5DestLocUTM = beamServices.geo.wgs2Utm(
         beamServices.geo
-          .snapToR5Edge(beamServices.beamScenario.transportNetwork.streetLayer, beamServices.geo.utm2Wgs(destLoc))
+          .snapToR5Edge(
+            beamServices.beamScenario.transportNetwork.streetLayer,
+            beamServices.geo.utm2Wgs(destLoc),
+            linkRadiusMeters
+          )
       )
       // Are those locations inside geofence?
       val isSrcInside = rha.geofence.forall(g => g.contains(r5SrcLocUTM))
