@@ -25,7 +25,8 @@ case class LinkParam(
   length: Option[Double],
   lanes: Option[Int],
   alpha: Option[Double],
-  beta: Option[Double]
+  beta: Option[Double],
+  hgv: Option[Boolean]
 ) {
 
   def overwriteFor(link: Link, cursor: EdgeStore#Edge): Unit = {
@@ -49,6 +50,9 @@ case class LinkParam(
     }
     beta.foreach { value =>
       link.getAttributes.putAttribute("beta", value)
+    }
+    hgv.foreach { value =>
+      link.getAttributes.putAttribute("hgv", value)
     }
   }
 }
@@ -121,12 +125,12 @@ trait NetworkCoordinator extends LazyLogging {
     transportNetwork: TransportNetwork,
     network: Network
   ): Unit = {
-    overwriteLinkParamMap.foreach { case (linkId, param) =>
-      val link = network.getLinks.get(Id.createLinkId(linkId))
-      require(link != null, s"Could not find link with id $linkId")
-      val edge = transportNetwork.streetLayer.edgeStore.getCursor(linkId)
-      // Overwrite params
-      param.overwriteFor(link, edge)
+    val links = network.getLinks.asScala
+    overwriteLinkParamMap.collect {
+      case (linkId, param) if links.contains(Id.createLinkId(linkId)) =>
+        val link = links(Id.createLinkId(linkId))
+        val edge = transportNetwork.streetLayer.edgeStore.getCursor(linkId)
+        param.overwriteFor(link, edge)
     }
   }
 
@@ -206,7 +210,8 @@ trait NetworkCoordinator extends LazyLogging {
             val lanes = Option(line.get("lanes")).map(_.toDouble.toInt)
             val alpha = Option(line.get("alpha")).map(_.toDouble)
             val beta = Option(line.get("beta")).map(_.toDouble)
-            val lp = LinkParam(linkId, capacity, freeSpeed, length, lanes, alpha, beta)
+            val hgv = Option(line.get("hgv")).map(_.toBoolean)
+            val lp = LinkParam(linkId, capacity, freeSpeed, length, lanes, alpha, beta, hgv)
 
             z += ((linkId, lp))
         }
