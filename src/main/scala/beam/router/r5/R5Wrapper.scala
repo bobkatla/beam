@@ -1119,8 +1119,8 @@ class R5Wrapper(workerParams: R5Parameters, travelTime: TravelTime, travelTimeNo
           travelTime,
           Some(vehicleType),
           time,
-          shouldAddNoise,
-          vehicleType.vehicleCategory == VehicleCategory.HeavyDutyTruck
+          shouldAddNoise
+//          vehicleType.vehicleCategory == VehicleCategory.HeavyDutyTruck
         )
       } else if (streetMode == StreetMode.BICYCLE && shouldApplyBicycleScaleFactor) {
         val scaleFactor = bikeLanesAdjustment.scaleFactor(vehicleType, linkId)
