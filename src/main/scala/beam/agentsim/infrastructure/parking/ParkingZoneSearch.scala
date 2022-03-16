@@ -310,7 +310,7 @@ object ParkingZoneSearch extends LazyLogging {
         vehicleId: String
       ): Option[List[GEO]] = {
         if (log) logger.info("vehicleId {} lookupParkingZones thisInnerDistance {} maxDistance {}", vehicleId, thisInnerDistance, maxDistance)
-        if (thisInnerDistance > maxDistance) None
+        if (thisInnerDistance >= maxDistance) None
         else {
           val result = zoneQuadTree
             .getElliptical(originUTM.getX, originUTM.getY, destinationUTM.getX, destinationUTM.getY, thisInnerDistance)
