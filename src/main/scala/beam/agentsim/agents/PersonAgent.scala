@@ -1112,6 +1112,7 @@ class PersonAgent(
         val vehicle = beamVehicles(nextLeg.beamVehicleId).vehicle
         val asDriver = data.restOfCurrentTrip.head.asDriver
         val isElectric = vehicle.isEV
+        val vehicleId = vehicle.id.toString
         val needEnroute = if (asDriver && isElectric) {
           val enrouteConfig = beamServices.beamConfig.beam.agentsim.agents.vehicles.enroute
           val firstLeg = data.restOfCurrentTrip.head
@@ -1126,12 +1127,17 @@ class PersonAgent(
           //sometimes this distance is zero which causes parking stall search to get stuck
           val distUtm = geo.distUTMInMeters(originUtm, destinationUtm)
           val distanceWrtBatteryCapacity = totalDistance / vehicle.beamVehicleType.getTotalRange
-          if (
+          val result = if (
             distanceWrtBatteryCapacity > enrouteConfig.remainingDistanceWrtBatteryCapacityThreshold ||
             totalDistance < enrouteConfig.noRefuelAtRemainingDistanceThresholdInMeters ||
             distUtm < enrouteConfig.noRefuelAtRemainingDistanceThresholdInMeters
           ) false
           else vehicle.isRefuelNeeded(refuelRequiredThresholdInMeters, noRefuelThresholdInMeters)
+          if (result) {
+            logger.info("vehicleId {} origin {} destination {}", vehicleId, beamServices.geo.utm2Wgs(vehicle.spaceTime.loc), lastLeg.travelPath.endPoint.loc)
+            logger.info("vehicleId {} totalDistance {} distanceWrtBatteryCapacity {} distUtm {}", vehicleId, totalDistance, distanceWrtBatteryCapacity, distUtm)
+          }
+          result
         } else {
           false
         }

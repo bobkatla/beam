@@ -6,6 +6,7 @@ import beam.agentsim.infrastructure.ParkingStall
 import beam.agentsim.infrastructure.charging._
 import beam.agentsim.infrastructure.taz.TAZ
 import beam.router.BeamRouter.Location
+import com.typesafe.scalalogging.LazyLogging
 import com.vividsolutions.jts.geom.Envelope
 import org.matsim.api.core.v01.{Coord, Id}
 import org.matsim.core.utils.collections.QuadTree
@@ -14,7 +15,7 @@ import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.util.Random
 
-object ParkingZoneSearch {
+object ParkingZoneSearch extends LazyLogging {
 
   /**
     * a nested structure to support a search over available parking attributes,
@@ -137,8 +138,11 @@ object ParkingZoneSearch {
     parkingZoneFilterFunction: ParkingZone[GEO] => Boolean,
     parkingZoneLocSamplingFunction: ParkingZone[GEO] => Coord,
     parkingZoneMNLParamsFunction: ParkingAlternative[GEO] => Map[ParkingMNL.Parameters, Double],
-    geoToTAZ: GEO => TAZ
+    geoToTAZ: GEO => TAZ,
+    vehicleId: String
   ): Option[ParkingZoneSearchResult[GEO]] = {
+    val log = params.searchMode == ParkingSearchMode.EnRouteCharging
+
     import GeoLevel.ops._
 
     // find zones
@@ -149,8 +153,11 @@ object ParkingZoneSearch {
       parkingZoneIdsSampled: List[(Id[ParkingZoneId], Option[ChargingPointType], ParkingType, Double)] = List.empty,
       iterations: Int = 1
     ): Option[ParkingZoneSearchResult[GEO]] = {
+
+      if (log) logger.info("vehicleId {} _search iterations {}", vehicleId, iterations)
+
       // a lookup of the (next) search ring for TAZs
-      searchMode.lookupParkingZonesInNextSearchAreaUnlessThresholdReached(params.zoneQuadTree) match {
+      searchMode.lookupParkingZonesInNextSearchAreaUnlessThresholdReached(params.zoneQuadTree, log, vehicleId) match {
         case Some(theseZones) =>
           // ParkingZones as as ParkingAlternatives
           val alternatives: List[ParkingSearchAlternative[GEO]] = {
@@ -254,7 +261,7 @@ object ParkingZoneSearch {
   }
 
   trait SearchMode[GEO] {
-    def lookupParkingZonesInNextSearchAreaUnlessThresholdReached(zoneQuadTree: QuadTree[GEO]): Option[List[GEO]]
+    def lookupParkingZonesInNextSearchAreaUnlessThresholdReached(zoneQuadTree: QuadTree[GEO], log: Boolean = false, vehicleId: String): Option[List[GEO]]
   }
 
   object SearchMode {
@@ -269,7 +276,9 @@ object ParkingZoneSearch {
       private var thisOuterRadius: Double = searchStartRadius
 
       override def lookupParkingZonesInNextSearchAreaUnlessThresholdReached(
-        zoneQuadTree: QuadTree[GEO]
+        zoneQuadTree: QuadTree[GEO],
+        log: Boolean,
+        vehicleId: String
       ): Option[List[GEO]] = {
         if (thisInnerRadius > searchMaxRadius) None
         else {
@@ -296,8 +305,11 @@ object ParkingZoneSearch {
       private var thisInnerDistance: Double = startDistance
 
       override def lookupParkingZonesInNextSearchAreaUnlessThresholdReached(
-        zoneQuadTree: QuadTree[GEO]
+        zoneQuadTree: QuadTree[GEO],
+        log: Boolean,
+        vehicleId: String
       ): Option[List[GEO]] = {
+        if (log) logger.info("vehicleId {} lookupParkingZones thisInnerDistance {} maxDistance {}", vehicleId, thisInnerDistance, maxDistance)
         if (thisInnerDistance > maxDistance) None
         else {
           val result = zoneQuadTree

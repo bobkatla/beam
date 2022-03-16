@@ -189,7 +189,8 @@ abstract class InfrastructureFunctions[GEO: GeoLevel](
         parkingZoneFilterFunction,
         parkingZoneLocSamplingFunction,
         parkingZoneMNLParamsFunction,
-        geoToTAZ
+        geoToTAZ,
+        inquiry.beamVehicle.map(_.id.toString).getOrElse("")
       )
     )
 
