@@ -79,6 +79,7 @@ class GenericFreightReader(
 
     val maybePlans = GenericCsvReader
       .readAsSeq[Option[PayloadPlan]](config.plansFilePath) { row =>
+        logger.info("==> PLAN READ {}", row)
         def get(key: String): String = getRowValue(config.plansFilePath, row, key)
         // payloadId,sequenceRank,tourId,payloadType,weightInKg,requestType,locationZone,locationX,locationY,
         // estimatedTimeOfArrivalInSec,arrivalTimeWindowInSecLower,arrivalTimeWindowInSecUpper,operationDurationInSec
@@ -156,9 +157,13 @@ class GenericFreightReader(
       else SnapCoordinateUtils.writeToCsv(s"$path/${CsvFile.FreightPayloadPlans}", errors)
     }
 
-    maybePlans.flatten
+    val results = maybePlans.flatten
       .groupBy(_.payloadId)
       .mapValues(_.head)
+
+    logger.info("PLAN SIZE {}", results.size)
+
+    results
   }
 
   @Override
@@ -245,6 +250,7 @@ class GenericFreightReader(
     }
 
     val maybeCarrierRows = GenericCsvReader.readAsSeq[Option[FreightCarrierRow]](config.carriersFilePath) { row =>
+      logger.info("==> CARRIER READ {}", row)
       def get(key: String): String = getRowValue(config.carriersFilePath, row, key)
       //carrierId,tourId,vehicleId,vehicleTypeId,warehouseZone,warehouseX,warehouseY
       val carrierId: Id[FreightCarrier] = s"$freightIdPrefix-carrier-${get("carrierId")}".createId
@@ -261,7 +267,7 @@ class GenericFreightReader(
         // note: placeholder to update warehouseLocationZone and warehouseLocationUTM later
         val freightCarrier = FreightCarrierRow(carrierId, tourId, vehicleId, vehicleTypeId, None, new Coord())
 
-        extractCoordOrTaz(row.get("warehouseX"), row.get("warehouseY"), row.get("warehouseZone")) match {
+        extractCoordOrTaz(warehouseX, warehouseY, row.get("warehouseZone")) match {
           case (warehouseZoneMaybe, Left(warehouseZoneUTM)) =>
             Some(
               freightCarrier.copy(warehouseLocationZone = warehouseZoneMaybe, warehouseLocationUTM = warehouseZoneUTM)
@@ -312,6 +318,8 @@ class GenericFreightReader(
         createCarrier(carrierId, carrierRows)
       }
       .toIndexedSeq
+
+    logger.info("CARRIER SIZE {}", carriersWithFleet.size)
 
     carriersWithFleet
   }
