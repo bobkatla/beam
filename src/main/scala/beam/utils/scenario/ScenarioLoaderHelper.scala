@@ -171,13 +171,16 @@ object ScenarioLoaderHelper extends LazyLogging {
     elements: Vector[PlanElement],
     snapLocationHelper: SnapLocationHelper
   ): Vector[ErrorInfo] = {
+    var store: Map[Coord, Coord] = Map.empty
+
     val errors = elements.foldLeft[Vector[ErrorInfo]](Vector.empty) { (errors, element) =>
       element match {
         case _: Leg => errors
         case a: Activity =>
           val planCoord = a.getCoord
           snapLocationHelper.computeResult(planCoord) match {
-            case Result.Succeed(_) =>
+            case Result.Succeed(splitCoord) =>
+              store += (planCoord -> splitCoord)
               // note: we don't want to update coord in-place here since we might end up removing plan from the person
               errors
             case Result.OutOfBoundingBoxError =>
@@ -204,7 +207,7 @@ object ScenarioLoaderHelper extends LazyLogging {
       elements.foreach {
         case a: Activity =>
           val planCoord = a.getCoord
-          snapLocationHelper.find(planCoord) match {
+          store.get(planCoord) match {
             case Some(coord) =>
               a.setCoord(coord)
             case None =>

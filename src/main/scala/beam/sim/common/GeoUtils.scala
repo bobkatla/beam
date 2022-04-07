@@ -31,10 +31,6 @@ trait GeoUtils extends ExponentialLazyLogging {
   def localCRS: String
   private lazy val notExponentialLogger = Logger(LoggerFactory.getLogger(getClass.getName))
 
-  type Input = (StreetMode, Double, Coord)
-  type Func = Input => Option[Split]
-  val splitStore = TrieMap[Input, Option[Split]]()
-
   lazy val utm2Wgs: GeotoolsTransformation =
     new GeotoolsTransformation(localCRS, "EPSG:4326")
 
@@ -128,18 +124,6 @@ trait GeoUtils extends ExponentialLazyLogging {
     maxRadius: Double,
     streetMode: StreetMode = StreetMode.WALK
   ): Split = {
-    splitStore
-      .getOrElseUpdate((streetMode, maxRadius, coord), Option(_getR5Split(streetLayer, coord, maxRadius, streetMode)))
-      .orNull
-  }
-
-  private def _getR5Split(
-    streetLayer: StreetLayer,
-    coord: Coord,
-    maxRadius: Double,
-    streetMode: StreetMode = StreetMode.WALK
-  ): Split = {
-    logger.info("Called _getR5Split with {}, {}, {}", streetMode, maxRadius, coord)
     val isWithinBbox = streetLayer.envelope.contains(coord.getX, coord.getY)
     var radius = 10.0
     var theSplit: Split = null

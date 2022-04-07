@@ -19,23 +19,13 @@ object SnapCoordinateUtils extends LazyLogging {
   }
 
   final case class SnapLocationHelper(geo: GeoUtils, streetLayer: StreetLayer, maxRadius: Double) {
-    private val store: TrieMap[Coord, Option[Coord]] = TrieMap.empty
-
-    def find(planCoord: Coord, isWgs: Boolean = false): Option[Coord] = {
-      val coord = if (isWgs) planCoord else geo.utm2Wgs(planCoord)
-      store.get(coord).flatten
-    }
-
     def computeResult(planCoord: Coord, isWgs: Boolean = false): Result = {
       val coord = if (isWgs) planCoord else geo.utm2Wgs(planCoord)
       if (streetLayer.envelope.contains(coord.getX, coord.getY)) {
-        val snapCoordOpt = store.getOrElseUpdate(
-          coord,
-          Option(geo.getR5Split(streetLayer, coord, maxRadius)).map { split =>
-            val updatedPlanCoord = geo.splitToCoord(split)
-            geo.wgs2Utm(updatedPlanCoord)
-          }
-        )
+        val snapCoordOpt: Option[Coord] = Option(geo.getR5Split(streetLayer, coord, maxRadius)).map { split =>
+          val updatedPlanCoord = geo.splitToCoord(split)
+          geo.wgs2Utm(updatedPlanCoord)
+        }
         snapCoordOpt.fold[Result](Result.R5SplitNullError)(Result.Succeed)
       } else Result.OutOfBoundingBoxError
     }
