@@ -48,7 +48,7 @@ class UrbanSimScenarioLoader(
     val plansF = Future {
       val plans = scenarioSource.getPlans
       logger.info(s"Read ${plans.size} plans")
-      validatePlans(plans)
+      plans
     }
 
     val personsF = Future {
@@ -60,14 +60,14 @@ class UrbanSimScenarioLoader(
     val householdsF = Future {
       val households = scenarioSource.getHousehold
       logger.info(s"Read ${households.size} households")
-      validateHouseholds(households)
+      households
     }
 
-    val validPlans = Await.result(plansF, 1800.seconds)
+    val validPlans = validatePlans(Await.result(plansF, 1800.seconds))
     logger.info(s"Reading plans done.")
     val persons = Await.result(personsF, 1800.seconds)
     logger.info(s"Reading persons done.")
-    val validHouseholds = Await.result(householdsF, 1800.seconds)
+    val validHouseholds = validateHouseholds(Await.result(householdsF, 1800.seconds))
     logger.info(s"Reading households done.")
 
     val (mergedPlans, plansMerged) = previousRunPlanMerger.map(_.merge(validPlans)).getOrElse(validPlans -> false)
