@@ -5,18 +5,14 @@ import beam.sim.common.GeoUtils
 import beam.utils.SnapCoordinateUtils
 import beam.utils.SnapCoordinateUtils.{Category, CsvFile, Error, ErrorInfo, Processed, Result, SnapLocationHelper}
 import com.typesafe.scalalogging.LazyLogging
-import org.matsim.api.core.v01.{Coord, Id}
 import org.matsim.api.core.v01.population.{Activity, Leg, Person}
+import org.matsim.api.core.v01.{Coord, Id}
 import org.matsim.core.scenario.MutableScenario
 import org.matsim.households.{Household, HouseholdsFactoryImpl}
 
 import scala.collection.Iterable
 import scala.collection.mutable.ListBuffer
-import scala.jdk.CollectionConverters.{
-  collectionAsScalaIterableConverter,
-  seqAsJavaListConverter,
-  setAsJavaSetConverter
-}
+import scala.jdk.CollectionConverters.{collectionAsScalaIterableConverter, seqAsJavaListConverter}
 
 trait ScenarioLoaderHelper extends LazyLogging {
 
@@ -31,6 +27,7 @@ trait ScenarioLoaderHelper extends LazyLogging {
   )
 
   private def validatePersonPlans(personId: PersonId, plans: Iterable[PlanElement]): Processed[PlanElement] = {
+    logger.info("==> Processed personId {}", personId.id)
     plans.foldLeft[Processed[PlanElement]](Processed()) {
       case (processed, planElement) if planElement.planElementType == PlanElement.Leg =>
         processed.copy(data = processed.data :+ planElement)
@@ -80,6 +77,7 @@ trait ScenarioLoaderHelper extends LazyLogging {
   private def snapLocationHouseholds(households: Iterable[HouseholdInfo]): Processed[HouseholdInfo] = {
     households.foldLeft[Processed[HouseholdInfo]](Processed()) { case (processed, household) =>
       val householdId = household.householdId.id
+      logger.info("==> Processed household {}", householdId)
       val utmCoord = new Coord(household.locationX, household.locationY)
       snapLocationHelper.computeResult(utmCoord) match {
         case Result.Succeed(splitCoord) =>

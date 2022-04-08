@@ -119,11 +119,11 @@ trait GeoUtils extends ExponentialLazyLogging {
   }
 
   def getR5Split(
-                  streetLayer: StreetLayer,
-                  coord: Coord,
-                  maxRadius: Double,
-                  streetMode: StreetMode = StreetMode.WALK
-                ): Split = {
+    streetLayer: StreetLayer,
+    coord: Coord,
+    maxRadius: Double,
+    streetMode: StreetMode = StreetMode.WALK
+  ): Split = {
     var radius = 10.0
     var theSplit: Split = null
     while (theSplit == null && radius <= maxRadius) {
@@ -132,11 +132,6 @@ trait GeoUtils extends ExponentialLazyLogging {
     }
     if (theSplit == null) {
       theSplit = streetLayer.findSplit(coord.getY, coord.getX, maxRadius, streetMode)
-    }
-    if (theSplit == null) {
-      notExponentialLogger.warn(
-        s"The split is `null` for StreetLayer.BoundingBox: ${streetLayer.getEnvelope}, coord: $coord, maxRadius: $maxRadius, street mode $streetMode"
-      )
     }
     theSplit
   }

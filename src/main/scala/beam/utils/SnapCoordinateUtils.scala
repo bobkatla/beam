@@ -19,6 +19,7 @@ object SnapCoordinateUtils extends LazyLogging {
   }
 
   final case class SnapLocationHelper(geo: GeoUtils, streetLayer: StreetLayer, maxRadius: Double) {
+
     def computeResult(planCoord: Coord, isWgs: Boolean = false): Result = {
       val coord = if (isWgs) planCoord else geo.utm2Wgs(planCoord)
       if (streetLayer.envelope.contains(coord.getX, coord.getY)) {
