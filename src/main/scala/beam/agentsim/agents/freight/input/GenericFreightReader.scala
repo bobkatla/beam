@@ -54,17 +54,14 @@ class GenericFreightReader(
         val departureTimeInSec = get("departureTimeInSec").toInt
         val maxTourDurationInSec = get("maxTourDurationInSec").toInt
 
-        Some(FreightTour(
-          tourId,
-          departureTimeInSec,
-          maxTourDurationInSec
-        ))
+        Some(
+          FreightTour(
+            tourId,
+            departureTimeInSec,
+            maxTourDurationInSec
+          )
+        )
       }
-
-    outputDirMaybe.foreach { path =>
-      if (errors.isEmpty) logger.info("No 'snap location' error to report for freight tours.")
-      else SnapCoordinateUtils.writeToCsv(s"$path/${CsvFile.FreightTours}", errors)
-    }
 
     maybeTours.flatten
       .groupBy(_.tourId)

@@ -4,19 +4,17 @@ import beam.sim.BeamScenario
 import beam.sim.common.GeoUtils
 import beam.utils.SnapCoordinateUtils
 import beam.utils.SnapCoordinateUtils.{Category, CsvFile, Error, ErrorInfo, Processed, Result, SnapLocationHelper}
-import com.typesafe.scalalogging.LazyLogging
+import beam.utils.logging.ExponentialLazyLogging
 import org.matsim.api.core.v01.population.{Activity, Leg, Person}
 import org.matsim.api.core.v01.{Coord, Id}
 import org.matsim.core.scenario.MutableScenario
 import org.matsim.households.{Household, HouseholdsFactoryImpl}
 
-import java.util.concurrent.ForkJoinPool
 import scala.collection.Iterable
 import scala.collection.mutable.ListBuffer
-import scala.collection.parallel.ForkJoinTaskSupport
 import scala.jdk.CollectionConverters.{collectionAsScalaIterableConverter, seqAsJavaListConverter}
 
-trait ScenarioLoaderHelper extends LazyLogging {
+trait ScenarioLoaderHelper extends ExponentialLazyLogging {
 
   def beamScenario: BeamScenario
   def geo: GeoUtils
@@ -65,27 +63,18 @@ trait ScenarioLoaderHelper extends LazyLogging {
   }
 
   private def snapLocationPlans(plans: Iterable[PlanElement]): Processed[PlanElement] = {
-    val coll = plans.groupBy(_.personId).par
-    val parallelism = Runtime.getRuntime.availableProcessors()
-    logger.info("--- Setting up parallelism to {} thread [snapLocationPlans] ---", parallelism)
-    coll.tasksupport = new ForkJoinTaskSupport(new ForkJoinPool(parallelism))
-    coll.foldLeft[Processed[PlanElement]](Processed()) {
-      case (processed, (personId, personPlans)) =>
-        val Processed(updatedPlans, errors) = validatePersonPlans(personId, personPlans)
-        if (updatedPlans.size == personPlans.size) {
-          processed.copy(data = processed.data ++ updatedPlans, errors = processed.errors ++ errors)
-        } else {
-          processed.copy(errors = processed.errors ++ errors)
-        }
+    plans.groupBy(_.personId).foldLeft[Processed[PlanElement]](Processed()) { case (processed, (personId, personPlans)) =>
+      val Processed(updatedPlans, errors) = validatePersonPlans(personId, personPlans)
+      if (updatedPlans.size == personPlans.size) {
+        processed.copy(data = processed.data ++ updatedPlans, errors = processed.errors ++ errors)
+      } else {
+        processed.copy(errors = processed.errors ++ errors)
+      }
     }
   }
 
   private def snapLocationHouseholds(households: Iterable[HouseholdInfo]): Processed[HouseholdInfo] = {
-    val coll = households.par
-    val parallelism = Runtime.getRuntime.availableProcessors()
-    logger.info("--- Setting up parallelism to {} thread [snapLocationHouseholds] ---", parallelism)
-    coll.tasksupport = new ForkJoinTaskSupport(new ForkJoinPool(parallelism))
-    coll.foldLeft[Processed[HouseholdInfo]](Processed()) { case (processed, household) =>
+    households.foldLeft[Processed[HouseholdInfo]](Processed()) { case (processed, household) =>
       val householdId = household.householdId.id
       logger.info("==> Processed householdId {}", householdId)
       val utmCoord = new Coord(household.locationX, household.locationY)
@@ -159,7 +148,7 @@ trait ScenarioLoaderHelper extends LazyLogging {
 
 }
 
-object ScenarioLoaderHelper extends LazyLogging {
+object ScenarioLoaderHelper extends ExponentialLazyLogging {
 
   import org.matsim.api.core.v01.population.PlanElement
 
@@ -179,11 +168,7 @@ object ScenarioLoaderHelper extends LazyLogging {
     elements: Vector[PlanElement],
     snapLocationHelper: SnapLocationHelper
   ): Vector[ErrorInfo] = {
-    val coll = elements.par
-    val parallelism = Runtime.getRuntime.availableProcessors()
-    logger.info("--- Setting up parallelism to {} thread [updatePlanElementCoord] ---", parallelism)
-    coll.tasksupport = new ForkJoinTaskSupport(new ForkJoinPool(parallelism))
-    val errors = coll.foldLeft[Vector[ErrorInfo]](Vector.empty) { (errors, element) =>
+    val errors = elements.foldLeft[Vector[ErrorInfo]](Vector.empty) { (errors, element) =>
       element match {
         case _: Leg => errors
         case a: Activity =>
@@ -237,7 +222,8 @@ object ScenarioLoaderHelper extends LazyLogging {
     val planErrors: ListBuffer[ErrorInfo] = ListBuffer()
     val householdErrors: ListBuffer[ErrorInfo] = ListBuffer()
     val people: List[Person] = scenario.getPopulation.getPersons.values().asScala.toList
-    people.foreach { person =>
+    people.par.foreach { person =>
+      logger.info(">>> person {}", person.getId)
       val plans = person.getPlans.asScala.toList
       plans.foreach { plan =>
         val elements: Vector[PlanElement] = plan.getPlanElements.asScala.toVector
@@ -256,7 +242,8 @@ object ScenarioLoaderHelper extends LazyLogging {
     val validPeople: Set[Id[Person]] = scenario.getPopulation.getPersons.values().asScala.map(_.getId).toSet
 
     val households: List[Household] = scenario.getHouseholds.getHouseholds.values().asScala.toList
-    households.foreach { household =>
+    households.par.foreach { household =>
+      logger.info(">>> household {}", household.getId)
       val members = household.getMemberIds.asScala.toSet
       val validMembers = validPeople.intersect(members)
 
@@ -270,7 +257,8 @@ object ScenarioLoaderHelper extends LazyLogging {
     }
 
     val householdsWithMembers: List[Household] = scenario.getHouseholds.getHouseholds.values().asScala.toList
-    householdsWithMembers.foreach { household =>
+    householdsWithMembers.par.foreach { household =>
+      logger.info(">>> update location household {}", household.getId)
       val householdId = household.getId.toString
       val attr = scenario.getHouseholds.getHouseholdAttributes
       val locationX = attr.getAttribute(householdId, "homecoordx").asInstanceOf[Double]

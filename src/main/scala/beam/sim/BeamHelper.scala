@@ -855,8 +855,7 @@ trait BeamHelper extends LazyLogging {
                 beamScenario,
                 source,
                 new GeoUtilsImpl(beamConfig),
-                Some(merger),
-                outputDirOpt
+                Some(merger)
               ).loadScenario()
             if (src == "urbansim_v2") {
               new ScenarioAdjuster(
@@ -882,24 +881,14 @@ trait BeamHelper extends LazyLogging {
                   scenarioBuilder,
                   beamScenario,
                   source,
-                  new GeoUtilsImpl(beamConfig),
-                  outputDirOpt
+                  new GeoUtilsImpl(beamConfig)
                 )
                   .loadScenario()
               }.asInstanceOf[MutableScenario]
               (scenario, beamScenario, false)
             case "xml" =>
               val beamScenario = loadScenario(beamConfig, outputDirOpt)
-              val snapLocationHelper = SnapLocationHelper(
-                new GeoUtilsImpl(beamConfig),
-                beamScenario.transportNetwork.streetLayer,
-                beamScenario.beamConfig.beam.routing.r5.linkRadiusMeters
-              )
-              val scenario = {
-                val result = ScenarioUtils.loadScenario(matsimConfig).asInstanceOf[MutableScenario]
-                ScenarioLoaderHelper.validateScenario(result, snapLocationHelper, outputDirOpt)
-                result
-              }
+              val scenario = ScenarioUtils.loadScenario(matsimConfig).asInstanceOf[MutableScenario]
               (scenario, beamScenario, false)
             case unknown =>
               throw new IllegalArgumentException(s"Beam does not support [$unknown] file type")
@@ -909,6 +898,12 @@ trait BeamHelper extends LazyLogging {
         }
       }
 
+    val snapLocationHelper = SnapLocationHelper(
+      new GeoUtilsImpl(beamConfig),
+      beamScenario.transportNetwork.streetLayer,
+      beamScenario.beamConfig.beam.routing.r5.linkRadiusMeters
+    )
+    ScenarioLoaderHelper.validateScenario(scenario, snapLocationHelper, outputDirOpt)
     (scenario, beamScenario, plansMerged)
   }
 
