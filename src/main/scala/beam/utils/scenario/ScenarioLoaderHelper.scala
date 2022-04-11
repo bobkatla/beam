@@ -63,13 +63,14 @@ trait ScenarioLoaderHelper extends ExponentialLazyLogging {
   }
 
   private def snapLocationPlans(plans: Iterable[PlanElement]): Processed[PlanElement] = {
-    plans.groupBy(_.personId).foldLeft[Processed[PlanElement]](Processed()) { case (processed, (personId, personPlans)) =>
-      val Processed(updatedPlans, errors) = validatePersonPlans(personId, personPlans)
-      if (updatedPlans.size == personPlans.size) {
-        processed.copy(data = processed.data ++ updatedPlans, errors = processed.errors ++ errors)
-      } else {
-        processed.copy(errors = processed.errors ++ errors)
-      }
+    plans.groupBy(_.personId).foldLeft[Processed[PlanElement]](Processed()) {
+      case (processed, (personId, personPlans)) =>
+        val Processed(updatedPlans, errors) = validatePersonPlans(personId, personPlans)
+        if (updatedPlans.size == personPlans.size) {
+          processed.copy(data = processed.data ++ updatedPlans, errors = processed.errors ++ errors)
+        } else {
+          processed.copy(errors = processed.errors ++ errors)
+        }
     }
   }
 
@@ -220,7 +221,6 @@ object ScenarioLoaderHelper extends ExponentialLazyLogging {
     outputDirMaybe: Option[String] = None
   ): Unit = {
     val planErrors: ListBuffer[ErrorInfo] = ListBuffer()
-    val householdErrors: ListBuffer[ErrorInfo] = ListBuffer()
     val people: List[Person] = scenario.getPopulation.getPersons.values().asScala.toList
     people.par.foreach { person =>
       logger.info(">>> person {}", person.getId)
@@ -239,6 +239,11 @@ object ScenarioLoaderHelper extends ExponentialLazyLogging {
       }
     }
 
+    outputDirMaybe.foreach { path =>
+      if (planErrors.isEmpty) logger.info("No 'snap location' error to report for scenario plans.")
+      else SnapCoordinateUtils.writeToCsv(s"$path/${CsvFile.Plans}", planErrors)
+    }
+
     val validPeople: Set[Id[Person]] = scenario.getPopulation.getPersons.values().asScala.map(_.getId).toSet
 
     val households: List[Household] = scenario.getHouseholds.getHouseholds.values().asScala.toList
@@ -251,11 +256,14 @@ object ScenarioLoaderHelper extends ExponentialLazyLogging {
         scenario.getHouseholds.getHouseholds.remove(household.getId)
         scenario.getHouseholds.getHouseholdAttributes.removeAllAttributes(household.getId.toString)
       } else {
-        val updatedHousehold = createHouseholdWithGivenMembers(household, validMembers.toList)
-        scenario.getHouseholds.getHouseholds.replace(household.getId, updatedHousehold)
+        if (validMembers != members) {
+          val updatedHousehold = createHouseholdWithGivenMembers(household, validMembers.toList)
+          scenario.getHouseholds.getHouseholds.replace(household.getId, updatedHousehold)
+        }
       }
     }
 
+    val householdErrors: ListBuffer[ErrorInfo] = ListBuffer()
     val householdsWithMembers: List[Household] = scenario.getHouseholds.getHouseholds.values().asScala.toList
     householdsWithMembers.par.foreach { household =>
       logger.info(">>> update location household {}", household.getId)
@@ -297,9 +305,6 @@ object ScenarioLoaderHelper extends ExponentialLazyLogging {
     }
 
     outputDirMaybe.foreach { path =>
-      if (planErrors.isEmpty) logger.info("No 'snap location' error to report for scenario plans.")
-      else SnapCoordinateUtils.writeToCsv(s"$path/${CsvFile.Plans}", planErrors)
-
       if (householdErrors.isEmpty) logger.info("No 'snap location' error to report for scenario households.")
       else SnapCoordinateUtils.writeToCsv(s"$path/${CsvFile.Households}", householdErrors)
     }
