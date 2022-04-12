@@ -87,7 +87,6 @@ object ScenarioLoaderHelper extends LazyLogging {
 
     val people: List[Person] = scenario.getPopulation.getPersons.values().asScala.toList
     people.par.foreach { person =>
-      logger.info(">>> person {}", person.getId.toString)
       val plans = person.getPlans.asScala.toList
       plans.foreach { plan =>
         val elements: Vector[PlanElement] = plan.getPlanElements.asScala.toVector
@@ -112,7 +111,6 @@ object ScenarioLoaderHelper extends LazyLogging {
 
     val households: List[Household] = scenario.getHouseholds.getHouseholds.values().asScala.toList
     households.par.foreach { household =>
-      logger.info(">>> household {}", household.getId.toString)
       val members = household.getMemberIds.asScala.toSet
       val validMembers = validPeople.intersect(members)
 
@@ -129,7 +127,6 @@ object ScenarioLoaderHelper extends LazyLogging {
 
     val householdsWithMembers: List[Household] = scenario.getHouseholds.getHouseholds.values().asScala.toList
     householdsWithMembers.par.foreach { household =>
-      logger.info(">>> update location household {}", household.getId.toString)
       val householdId = household.getId.toString
       val attr = scenario.getHouseholds.getHouseholdAttributes
       val locationX = attr.getAttribute(householdId, "homecoordx").asInstanceOf[Double]
