@@ -1,19 +1,22 @@
 package beam.agentsim.agents.freight.input
 
 import beam.agentsim.agents.freight._
-import beam.agentsim.agents.freight.input.FreightReader.ClosestUTMPointOnMap
+import beam.agentsim.agents.freight.input.GenericFreightReader.ClosestUTMPoint
 import beam.agentsim.agents.vehicles.{BeamVehicle, BeamVehicleType}
 import beam.agentsim.infrastructure.taz.{TAZ, TAZTreeMap}
 import beam.sim.common.GeoUtils
 import beam.sim.config.BeamConfig.Beam.Agentsim.Agents.Freight
+import beam.utils.SnapCoordinateUtils
+import beam.utils.SnapCoordinateUtils.{Category, CsvFile, Error, ErrorInfo, Result, SnapLocationHelper}
 import beam.utils.csv.GenericCsvReader
 import beam.utils.matsim_conversion.MatsimPlanConversion.IdOps
 import com.typesafe.scalalogging.LazyLogging
+import org.apache.commons.lang3.StringUtils.isBlank
 import org.matsim.api.core.v01.population._
 import org.matsim.api.core.v01.{Coord, Id}
 import org.matsim.households.Household
-import org.apache.commons.lang3.StringUtils.isBlank
 
+import scala.collection.mutable.ListBuffer
 import scala.util.Random
 
 /**
@@ -24,7 +27,9 @@ class GenericFreightReader(
   val geoUtils: GeoUtils,
   rnd: Random,
   tazTree: TAZTreeMap,
-  closestUTMPointOnMapMaybe: Option[ClosestUTMPointOnMap]
+  val snapLocationAndRemoveInvalidInputs: Boolean,
+  val snapLocationHelperMaybe: Option[SnapLocationHelper] = None,
+  val outputDirMaybe: Option[String] = None
 ) extends LazyLogging
     with FreightReader {
 
@@ -40,6 +45,8 @@ class GenericFreightReader(
 
   @Override
   def readFreightTours(): Map[Id[FreightTour], FreightTour] = {
+    val errors: ListBuffer[ErrorInfo] = ListBuffer()
+
     val maybeTours = GenericCsvReader
       .readAsSeq[Option[FreightTour]](config.toursFilePath) { row =>
         def get(key: String): String = getRowValue(config.toursFilePath, row, key)
@@ -47,18 +54,20 @@ class GenericFreightReader(
         val tourId: Id[FreightTour] = get("tourId").createId[FreightTour]
         val departureTimeInSec = get("departureTimeInSec").toInt
         val maxTourDurationInSec = get("maxTourDurationInSec").toInt
-        extractCoordOrTaz(
-          row.get("departureLocationX"),
-          row.get("departureLocationY"),
-          row.get("departureLocationZone")
-        ) match {
-          case (_, Some(_)) =>
-            Some(FreightTour(tourId, departureTimeInSec, maxTourDurationInSec))
-          case _ =>
-            logger.error(f"Following freight tour row discarded because departure location is not reachable: $row")
-            None
-        }
+
+        Some(
+          FreightTour(
+            tourId,
+            departureTimeInSec,
+            maxTourDurationInSec
+          )
+        )
       }
+
+    outputDirMaybe.foreach { path =>
+      if (errors.isEmpty) logger.info("No 'snap location' error to report for freight tours.")
+      else SnapCoordinateUtils.writeToCsv(s"$path/${CsvFile.FreightTours}", errors)
+    }
 
     maybeTours.flatten
       .groupBy(_.tourId)
@@ -67,6 +76,8 @@ class GenericFreightReader(
 
   @Override
   def readPayloadPlans(): Map[Id[PayloadPlan], PayloadPlan] = {
+    val errors: ListBuffer[ErrorInfo] = ListBuffer()
+
     val maybePlans = GenericCsvReader
       .readAsSeq[Option[PayloadPlan]](config.plansFilePath) { row =>
         def get(key: String): String = getRowValue(config.plansFilePath, row, key)
@@ -86,30 +97,65 @@ class GenericFreightReader(
         } else {
           requestType.toString
         }
-        extractCoordOrTaz(row.get("locationX"), row.get("locationY"), row.get("locationZone")) match {
-          case (locationZoneMaybe, Some(locationUTMOnMap)) =>
-            Some(
-              PayloadPlan(
-                get("payloadId").createId,
-                get("sequenceRank").toDouble.round.toInt,
-                get("tourId").createId,
-                get("payloadType").createId[PayloadType],
-                get("weightInKg").toDouble,
-                requestType,
-                activityType,
-                locationZoneMaybe,
-                locationUTMOnMap,
-                get("estimatedTimeOfArrivalInSec").toDouble.toInt,
-                get("arrivalTimeWindowInSecLower").toDouble.toInt,
-                get("arrivalTimeWindowInSecUpper").toDouble.toInt,
-                operationDurationInSec
+
+        val payloadId = get("payloadId").createId[PayloadPlan]
+        val locationX = row.get("locationX")
+        val locationY = row.get("locationY")
+
+        // note: placeholder to update locationZone and locationUTM later
+        val payloadPlan = PayloadPlan(
+          payloadId,
+          get("sequenceRank").toDouble.round.toInt,
+          get("tourId").createId,
+          get("payloadType").createId[PayloadType],
+          get("weightInKg").toDouble,
+          requestType,
+          activityType,
+          None,
+          new Coord(),
+          get("estimatedTimeOfArrivalInSec").toDouble.toInt,
+          get("arrivalTimeWindowInSecLower").toDouble.toInt,
+          get("arrivalTimeWindowInSecUpper").toDouble.toInt,
+          operationDurationInSec
+        )
+
+        extractCoordOrTaz(locationX, locationY, row.get("locationZone"), snapLocationAndRemoveInvalidInputs) match {
+          case (locationZoneMaybe, Left(locationZoneUTM)) =>
+            Some(payloadPlan.copy(locationZone = locationZoneMaybe, locationUTM = locationZoneUTM))
+          case (locationZoneMaybe, Right(Result.Succeed(splitCoord))) =>
+            Some(payloadPlan.copy(locationZone = locationZoneMaybe, locationUTM = splitCoord))
+          case (_, Right(Result.OutOfBoundingBoxError)) =>
+            errors.append(
+              ErrorInfo(
+                payloadId.toString,
+                Category.FreightPayloadPlan,
+                Error.OutOfBoundingBox,
+                locationX.toDouble,
+                locationY.toDouble
               )
             )
+            None
+          case (_, Right(Result.R5SplitNullError)) =>
+            errors.append(
+              ErrorInfo(
+                payloadId.toString,
+                Category.FreightPayloadPlan,
+                Error.R5SplitNull,
+                locationX.toDouble,
+                locationY.toDouble
+              )
+            )
+            None
           case _ =>
-            logger.error(f"Following freight plan row discarded because zone location is not reachable: $row")
+            logger.error(f"Following freight payload plan row discarded for unknown reason: $row")
             None
         }
       }
+
+    outputDirMaybe.foreach { path =>
+      if (errors.isEmpty) logger.info("No 'snap location' error to report for freight payload plans.")
+      else SnapCoordinateUtils.writeToCsv(s"$path/${CsvFile.FreightPayloadPlans}", errors)
+    }
 
     maybePlans.flatten
       .groupBy(_.payloadId)
@@ -122,6 +168,7 @@ class GenericFreightReader(
     allPlans: Map[Id[PayloadPlan], PayloadPlan],
     vehicleTypes: Map[Id[BeamVehicleType], BeamVehicleType]
   ): IndexedSeq[FreightCarrier] = {
+    val errors: ListBuffer[ErrorInfo] = ListBuffer()
 
     val existingTours: Set[Id[FreightTour]] = allTours.keySet.intersect(allPlans.map(_._2.tourId).toSet)
     val plans: Map[Id[PayloadPlan], PayloadPlan] = allPlans.filter { case (_, plan) =>
@@ -209,20 +256,64 @@ class GenericFreightReader(
         logger.error(f"Following freight carrier row discarded because tour $tourId was filtered out: $row")
         None
       } else {
-        extractCoordOrTaz(row.get("warehouseX"), row.get("warehouseY"), row.get("warehouseZone")) match {
-          case (warehouseZoneMaybe, Some(warehouseUTMOnMap)) =>
-            Some(FreightCarrierRow(carrierId, tourId, vehicleId, vehicleTypeId, warehouseZoneMaybe, warehouseUTMOnMap))
-          case (_, warehouseXYMaybe) =>
-            logger.error(
-              f"Following freight carrier row discarded because warehouse location ($warehouseXYMaybe) is not reachable: $row"
+        val warehouseX = row.get("warehouseX")
+        val warehouseY = row.get("warehouseY")
+
+        // note: placeholder to update warehouseLocationZone and warehouseLocationUTM later
+        val freightCarrier = FreightCarrierRow(carrierId, tourId, vehicleId, vehicleTypeId, None, new Coord())
+
+        extractCoordOrTaz(
+          row.get("warehouseX"),
+          row.get("warehouseY"),
+          row.get("warehouseZone"),
+          snapLocationAndRemoveInvalidInputs
+        ) match {
+          case (warehouseZoneMaybe, Left(warehouseZoneUTM)) =>
+            Some(
+              freightCarrier.copy(warehouseLocationZone = warehouseZoneMaybe, warehouseLocationUTM = warehouseZoneUTM)
             )
+          case (warehouseZoneMaybe, Right(Result.Succeed(splitCoord))) =>
+            Some(
+              freightCarrier.copy(warehouseLocationZone = warehouseZoneMaybe, warehouseLocationUTM = splitCoord)
+            )
+          case (_, Right(Result.OutOfBoundingBoxError)) =>
+            errors.append(
+              ErrorInfo(
+                carrierId.toString,
+                Category.FreightCarrier,
+                Error.OutOfBoundingBox,
+                warehouseX.toDouble,
+                warehouseY.toDouble
+              )
+            )
+            None
+          case (_, Right(Result.R5SplitNullError)) =>
+            errors.append(
+              ErrorInfo(
+                carrierId.toString,
+                Category.FreightCarrier,
+                Error.R5SplitNull,
+                warehouseX.toDouble,
+                warehouseY.toDouble
+              )
+            )
+            None
+          case _ =>
+            logger.error("Following freight carrier row is discarded for unknown reason: {}", row)
             None
         }
       }
     }
 
+    outputDirMaybe.foreach { path =>
+      if (errors.isEmpty) logger.info("No 'snap location' error to report for freight carriers.")
+      else SnapCoordinateUtils.writeToCsv(s"$path/${CsvFile.FreightCarriers}", errors)
+    }
+
+    val removedCarrierIds = errors.map(_.id)
     val carriersWithFleet = maybeCarrierRows.flatten
       .groupBy(_.carrierId)
+      .filterNot { case (carrierId, _) => removedCarrierIds.contains(carrierId.toString) }
       .map { case (carrierId, carrierRows) =>
         createCarrier(carrierId, carrierRows)
       }
@@ -237,18 +328,26 @@ class GenericFreightReader(
   }
 
   private def getDistributedTazLocation(taz: TAZ): Coord =
-    convertedLocation(TAZTreeMap.randomLocationInTAZ(taz, rnd))
+    convertedLocation(TAZTreeMap.randomLocationInTAZ(taz, rnd, snapLocationHelperMaybe))
 
-  private def getLocationFromCoord(location: Coord): Option[Coord] = {
-    closestUTMPointOnMapMaybe.map(_.find(location, geoUtils)).getOrElse(Some(geoUtils.wgs2Utm(location)))
-  }
-
-  private def extractCoordOrTaz(strX: String, strY: String, strZone: String): (Option[Id[TAZ]], Option[Coord]) = {
+  private def extractCoordOrTaz(
+    strX: String,
+    strY: String,
+    strZone: String,
+    snapLocationAndRemoveInvalidInputs: Boolean
+  ): (Option[Id[TAZ]], ClosestUTMPoint) = {
     if (isBlank(strX) || isBlank(strY)) {
       val taz = getTaz(strZone)
-      (Some(taz.tazId), Some(getDistributedTazLocation(taz)))
+      (Some(taz.tazId), Left(getDistributedTazLocation(taz)))
     } else {
-      (None, getLocationFromCoord(location(strX.toDouble, strY.toDouble)))
+      val wasInWgs = config.convertWgs2Utm
+      val loc = location(strX.toDouble, strY.toDouble)
+      val finalLoc =
+        if (snapLocationAndRemoveInvalidInputs)
+          snapLocationHelperMaybe.map(_.computeResult(loc, wasInWgs)).getOrElse(Result.Succeed(loc))
+        else Result.Succeed(loc)
+
+      (None, Right(finalLoc))
     }
   }
 
@@ -264,5 +363,12 @@ class GenericFreightReader(
     val updatedCarrierId = carrierId.toString.replace(freightIdPrefix + "-", "")
     s"$freightIdPrefix-$updatedCarrierId-household".createId
   }
+
+}
+
+object GenericFreightReader {
+
+  // either[tazLocation, snapLocationResult]
+  type ClosestUTMPoint = Either[Coord, Result]
 
 }

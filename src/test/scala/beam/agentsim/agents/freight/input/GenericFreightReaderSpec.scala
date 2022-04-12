@@ -45,7 +45,8 @@ class GenericFreightReaderSpec extends AnyWordSpecLike with Matchers {
 
   val rnd = new Random(2333L)
 
-  private val reader = new GenericFreightReader(freightConfig, geoUtils, rnd, tazMap, None)
+  private val reader =
+    new GenericFreightReader(freightConfig, geoUtils, rnd, tazMap, snapLocationAndRemoveInvalidInputs = false)
 
   "PayloadPlansConverter" should {
     "read Payload Plans" in {
@@ -152,12 +153,24 @@ class GenericFreightReaderSpec extends AnyWordSpecLike with Matchers {
   }
 
   private def readCarriers: IndexedSeq[FreightCarrier] = {
-    val converter = new GenericFreightReader(freightConfig, geoUtils, new Random(4324L), tazMap, None)
+    val converter = new GenericFreightReader(
+      freightConfig,
+      geoUtils,
+      new Random(4324L),
+      tazMap,
+      snapLocationAndRemoveInvalidInputs = false
+    )
     val payloadPlans: Map[Id[PayloadPlan], PayloadPlan] = converter.readPayloadPlans()
     val tours = converter.readFreightTours()
     val vehicleTypes = BeamVehicleUtils.readBeamVehicleTypeFile("test/input/beamville/vehicleTypes.csv")
     val freightCarriers: IndexedSeq[FreightCarrier] =
-      new GenericFreightReader(freightConfig, geoUtils, new Random(73737L), tazMap, None).readFreightCarriers(
+      new GenericFreightReader(
+        freightConfig,
+        geoUtils,
+        new Random(73737L),
+        tazMap,
+        snapLocationAndRemoveInvalidInputs = false
+      ).readFreightCarriers(
         tours,
         payloadPlans,
         vehicleTypes
