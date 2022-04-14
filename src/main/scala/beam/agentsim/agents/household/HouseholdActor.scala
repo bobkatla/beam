@@ -195,7 +195,7 @@ object HouseholdActor {
     private var personAndActivityToCav: Map[(Id[Person], Activity), BeamVehicle] = Map()
     private var personAndActivityToLegs: Map[(Id[Person], Activity), List[BeamLeg]] = Map()
     private var householdMembersToLocationTypeAndLocation: Map[Id[Person], (ParkingActivityType, String, Coord)] = Map()
-    private val trackingVehicleAssignmentAtInitialization = mutable.HashMap.empty[Id[BeamVehicle], Id[Person]]
+    private val trackingCAVAssignmentAtInitialization = mutable.HashMap.empty[Id[BeamVehicle], Id[Person]]
     private val householdVehicleCategories = List(Car, Bike)
 
     private var whoDrivesThisVehicle: Map[Id[BeamVehicle], Id[Person]] = Map()
@@ -300,7 +300,7 @@ object HouseholdActor {
                   .find(_._2._1 == ParkingActivityType.Home)
                   .map(_._1)
                   .getOrElse(householdMembersToLocationTypeAndLocation.keys.head)
-            trackingVehicleAssignmentAtInitialization.put(cav.id, personId)
+            trackingCAVAssignmentAtInitialization.put(cav.id, personId)
             val (_, _, location) = householdMembersToLocationTypeAndLocation(personId)
             cav.spaceTime = SpaceTime(location, 0)
             schedulerRef ! ScheduleTrigger(InitializeTrigger(0), cavDriverRef)
@@ -576,7 +576,7 @@ object HouseholdActor {
     }
 
     def sendParkingOrChargingInquiry(vehicle: BeamVehicle, triggerId: Long): Future[Any] = {
-      val personId = trackingVehicleAssignmentAtInitialization(vehicle.id)
+      val personId = trackingCAVAssignmentAtInitialization(vehicle.id)
       val (_, activityType, location) = householdMembersToLocationTypeAndLocation(personId)
       val inquiry = ParkingInquiry.init(
         SpaceTime(location, 0),

@@ -21,8 +21,9 @@ shpFile <- pp(workDir, "/shapefile/Oakland+Alameda+TAZ/Transportation_Analysis_Z
 oaklandCbg <- st_read(shpFile)
 
 ###
-eventsraw <- readCsv(pp(workDir, "/0.events.csv.gz"))
-events <- readCsv(pp(workDir, "/filtered.0.events.csv.gz"))
+#eventsraw <- readCsv(pp(workDir, "/0.events.csv.gz"))
+events1 <- readCsv(pp(workDir, "/2022Feb/BATCH1/events/filtered.0.events.SC4b.csv.gz"))
+events2 <- readCsv(pp(workDir, "/2022Feb/BATCH1/events/filtered.0.events.SC6.csv.gz"))
 
 ## temp
 workdir <- "/Users/haitamlaarabi/Data/GEMINI/enroute-scenario3"
