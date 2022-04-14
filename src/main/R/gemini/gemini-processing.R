@@ -25,6 +25,18 @@ oaklandCbg <- st_read(shpFile)
 events1 <- readCsv(pp(workDir, "/2022Feb/BATCH1/events/filtered.0.events.SC4b.csv.gz"))
 events2 <- readCsv(pp(workDir, "/2022Feb/BATCH1/events/filtered.0.events.SC6.csv.gz"))
 
+
+infra <- readCsv(pp(workDir, "/2022-04/infrastructure/4a_output_2022_Apr_13_pubClust.csv"))
+infra[, c("GEOM", "locationX", "locationY") := tstrsplit(geometry, " ", fixed=TRUE)]
+infra <- infra[,-c("geometry", "GEOM")]
+write.csv(
+  infra,
+  file = pp(workDir, "/2022-04/infrastructure/4a_output_2022_Apr_13_pubClust_XY.csv"),
+  row.names=FALSE,
+  quote=FALSE)
+
+
+
 ## temp
 workdir <- "/Users/haitamlaarabi/Data/GEMINI/enroute-scenario3"
 # default <- readCsv(pp(workdir,"/default.0.events.csv.gz"))

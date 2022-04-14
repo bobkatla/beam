@@ -2,6 +2,9 @@ import pandas as pd
 import os
 import random
 from tqdm import tqdm
+from pyproj import Proj, transform
+from pyproj import Transformer
+pd.options.mode.chained_assignment = None
 
 
 def read_csv_file(filename):
@@ -11,38 +14,54 @@ def read_csv_file(filename):
     return pd.read_csv(filename, sep=",", index_col=None, header=0, compression=compression)
 
 
-nrel_file_input = os.path.expanduser('~/Data/GEMINI/2022Feb/siting/init1-7_2022_Feb_03_wgs84.csv')
+workdir = "~/Data/GEMINI/2022-04/infrastructure/"
+nrel_file_input = os.path.expanduser(workdir + '4a_output_2022_Apr_13_pubClust.csv')
 smart_file_input = os.path.expanduser("~/Data/GEMINI/stations/taz-parking-sparse-fast-limited-l2-150-lowtech-b.csv")
 nrel_file_converted_input = os.path.expanduser(nrel_file_input.split(".")[0] + "_converted.csv")
 smart_file_updated_input = os.path.expanduser(smart_file_input.split(".")[0] + "_updated.csv")
 smart_file_with_fees_input = os.path.expanduser(nrel_file_input.split(".")[0] + "_withFees.csv.gz")
 
+transformer = Transformer.from_crs(7131, 4326, always_xy=True)
+inProj = Proj(init='epsg:7131')
+outProj = Proj(init='epsg:4326')
+
+
+def to_wgs84(row):
+    return pd.Series(transform(inProj, outProj, row["lat"], row["lon"]))
+
 
 def convert_nrel_data(nrel_file, nrel_file_converted):
     if not os.path.exists(nrel_file_converted):
         data = read_csv_file(nrel_file)
-        data2 = data[["subSpace", "pType", "chrgType", "field_1", "household_id", "X", "Y", "housingTypes", "propertytype", "propertysubtype", "county"]]
-        data2 = data2.rename(columns={
-            "chrgType": "chargingPointType",
-            "pType": "parkingType",
-            "subSpace": "taz",
-            "X": "locationX",
-            "Y": "locationY",
-            "housingTypes": "housingType",
-            "propertytype": "propertyType",
-            "propertysubtype": "propertySubType",
-            "county": "county"
-        })
-        data2["parkingZoneId"] = ""
-        data2["reservedFor"] = "Any"
-        data2["pricingModel"] = "Block"
-        data2["feeInCents"] = 0
-        data2["numStalls"] = 1
-        data2.loc[data2["household_id"].notna(), ['reservedFor']] = data2.loc[data2["household_id"].notna()].apply(
-            lambda row1: "household(" + str(int(row1["household_id"])) + ")", axis=1)
-        data2.loc[data2["field_1"].notna(), ['parkingZoneId']] = data2.loc[data2["field_1"].notna()].apply(
-            lambda row2: "PEV-" + str(int(row2["taz"])) + "-" + str(int(row2["field_1"])), axis=1)
-        nrel_data = data2.drop(columns=['household_id', 'field_1'])
+        # data2 = data[["subSpace", "pType", "chrgType", "field_1", "household_id", "X", "Y", "housingTypes",
+        # "propertytype", "propertysubtype", "county"]]
+        data2 = data[["subSpace", "pType", "chrgType", "household_id", "geometry", "housingTypes", "propertytype", "county"]]
+        data2[['geomType', 'lon', 'lat']] = data2["geometry"].str.split(" ", expand=True)
+        data2[['X', 'Y']] = data2.apply(to_wgs84, axis=1)  # new coord dataframe with two columns
+        nrel_data = data2
+        print(nrel_data)
+        #print(data2.apply(to_wgs84, axis=1).head())
+        # data2 = data2.rename(columns={
+        #     "chrgType": "chargingPointType",
+        #     "pType": "parkingType",
+        #     "subSpace": "taz",
+        #     "X": "locationX",
+        #     "Y": "locationY",
+        #     "housingTypes": "housingType",
+        #     "propertytype": "propertyType",
+        #     "propertysubtype": "propertySubType",
+        #     "county": "county"
+        # })
+        # data2["parkingZoneId"] = ""
+        # data2["reservedFor"] = "Any"
+        # data2["pricingModel"] = "Block"
+        # data2["feeInCents"] = 0
+        # data2["numStalls"] = 1
+        # data2.loc[data2["household_id"].notna(), ['reservedFor']] = data2.loc[data2["household_id"].notna()].apply(
+        #     lambda row1: "household(" + str(int(row1["household_id"])) + ")", axis=1)
+        # data2.loc[data2["field_1"].notna(), ['parkingZoneId']] = data2.loc[data2["field_1"].notna()].apply(
+        #     lambda row2: "PEV-" + str(int(row2["taz"])) + "-" + str(int(row2["field_1"])), axis=1)
+        # nrel_data = data2.drop(columns=['household_id', 'field_1'])
         nrel_data.to_csv(nrel_file_converted, index=False)
         print("Reading nrel infrastructure done!")
         return nrel_data
@@ -105,8 +124,8 @@ def assign_fees_to_infrastructure(nrel_data, fees_data, smart_file_with_fees):
 
 
 nrel_data_output = convert_nrel_data(nrel_file_input, nrel_file_converted_input)
-print("convert_nrel_data done!")
-fees_data_output = reading_sf_bay_fees(smart_file_input, smart_file_updated_input)
-print("reading_sf_bay_fees done!")
-assign_fees_to_infrastructure(nrel_data_output, fees_data_output, smart_file_with_fees_input)
+# print("convert_nrel_data done!")
+# fees_data_output = reading_sf_bay_fees(smart_file_input, smart_file_updated_input)
+# print("reading_sf_bay_fees done!")
+# assign_fees_to_infrastructure(nrel_data_output, fees_data_output, smart_file_with_fees_input)
 print("END")
