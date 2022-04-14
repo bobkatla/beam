@@ -48,6 +48,7 @@ object ParkingZoneSearch {
     boundingBox: Envelope,
     distanceFunction: (Coord, Coord) => Double,
     enrouteDuration: Double,
+    estimatedMinParkingDuration: Double,
     searchExpansionFactor: Double = 2.0
   )
 
@@ -167,10 +168,18 @@ object ParkingZoneSearch {
               val stallPriceInDollars: Double =
                 parkingZone.pricingModel match {
                   case None => 0
-                  case Some(pricingModel) if params.searchMode == ParkingSearchMode.EnRoute =>
-                    PricingModel.evaluateParkingTicket(pricingModel, config.enrouteDuration.toInt)
+                  case Some(pricingModel) if params.searchMode == ParkingSearchMode.EnRouteCharging =>
+                    PricingModel.evaluateParkingTicket(
+                      pricingModel,
+                      config.enrouteDuration.toInt,
+                      config.estimatedMinParkingDuration
+                    )
                   case Some(pricingModel) =>
-                    PricingModel.evaluateParkingTicket(pricingModel, params.parkingDuration.toInt)
+                    PricingModel.evaluateParkingTicket(
+                      pricingModel,
+                      params.parkingDuration.toInt,
+                      config.estimatedMinParkingDuration
+                    )
                 }
               val parkingAlternative: ParkingAlternative[GEO] =
                 ParkingAlternative(zone, parkingZone.parkingType, parkingZone, stallLocation, stallPriceInDollars)
@@ -306,7 +315,7 @@ object ParkingZoneSearch {
       params: ParkingZoneSearchParams[GEO]
     ): SearchMode[GEO] = {
       params.searchMode match {
-        case ParkingSearchMode.EnRoute =>
+        case ParkingSearchMode.EnRouteCharging =>
           EnrouteSearch(
             params.originUTM.getOrElse(throw new RuntimeException("Enroute process is expecting an origin location")),
             params.destinationUTM,

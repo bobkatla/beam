@@ -14,7 +14,7 @@ import beam.agentsim.agents.vehicles.VehicleProtocol.StreetVehicle
 import beam.agentsim.agents.vehicles.{BeamVehicle, PassengerSchedule, VehicleManager}
 import beam.agentsim.events.{LeavingParkingEvent, ParkingEvent, SpaceTime}
 import beam.agentsim.infrastructure.ChargingNetworkManager._
-import beam.agentsim.infrastructure.ParkingInquiry.ParkingSearchMode
+import beam.agentsim.infrastructure.ParkingInquiry.{ParkingActivityType, ParkingSearchMode}
 import beam.agentsim.infrastructure.charging.{ChargingPointType, ElectricCurrentType}
 import beam.agentsim.infrastructure.parking.PricingModel
 import beam.agentsim.infrastructure.taz.TAZTreeMap
@@ -215,11 +215,16 @@ trait ChoosesParking extends {
         Some(id),
         attributes.valueOfTime,
         parkingDuration,
-        searchMode = ParkingSearchMode.EnRoute,
+        searchMode = ParkingSearchMode.EnRouteCharging,
         originUtm = Some(vehicle.spaceTime),
         triggerId = getCurrentTriggerIdOrGenerate
       )
     } else {
+      val searchModeChargeOrPark =
+        if (currentBeamVehicle.isEV && isRefuelAtDestinationNeeded(currentBeamVehicle, activityType))
+          ParkingSearchMode.DestinationCharging
+        else ParkingSearchMode.Parking
+
       // for regular parking inquiry, we have vehicle information in `currentBeamVehicle`
       val reservedFor = VehicleManager.getReservedFor(currentBeamVehicle.vehicleManagerId.get).get
       ParkingInquiry.init(
@@ -231,8 +236,26 @@ trait ChoosesParking extends {
         Some(id),
         attributes.valueOfTime,
         parkingDuration,
+        searchMode = searchModeChargeOrPark,
         triggerId = getCurrentTriggerIdOrGenerate
       )
+    }
+  }
+
+  private def isRefuelAtDestinationNeeded(vehicle: BeamVehicle, activityType: String): Boolean = {
+    ParkingInquiry.activityTypeStringToEnum(activityType) match {
+      case ParkingActivityType.Home => true
+      case ParkingActivityType.Work =>
+        // multiplying
+        vehicle.isRefuelNeeded(
+          beamScenario.beamConfig.beam.agentsim.agents.vehicles.destination.work.refuelRequiredThresholdInMeters,
+          beamScenario.beamConfig.beam.agentsim.agents.vehicles.destination.noRefuelThresholdInMeters
+        )
+      case _ =>
+        vehicle.isRefuelNeeded(
+          beamScenario.beamConfig.beam.agentsim.agents.vehicles.destination.secondary.refuelRequiredThresholdInMeters,
+          beamScenario.beamConfig.beam.agentsim.agents.vehicles.destination.noRefuelThresholdInMeters
+        )
     }
   }
 

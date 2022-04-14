@@ -3,11 +3,13 @@ import os
 import random
 from tqdm import tqdm
 
+
 def read_csv_file(filename):
     compression = None
     if filename.endswith(".gz"):
         compression = 'gzip'
     return pd.read_csv(filename, sep=",", index_col=None, header=0, compression=compression)
+
 
 nrel_file_input = os.path.expanduser('~/Data/GEMINI/2022Feb/siting/init1-7_2022_Feb_03_wgs84.csv')
 smart_file_input = os.path.expanduser("~/Data/GEMINI/stations/taz-parking-sparse-fast-limited-l2-150-lowtech-b.csv")
