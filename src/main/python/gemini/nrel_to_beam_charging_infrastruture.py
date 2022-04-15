@@ -16,19 +16,13 @@ def read_csv_file(filename):
 
 
 workdir = "~/Data/GEMINI/2022-04/infrastructure/"
-nrel_file_input = os.path.expanduser(workdir + '4b_output_2022_Apr_13_pubClust.csv')
+nrel_file_input = os.path.expanduser(workdir + '6_output_2022_Apr_13_pubClust.csv')
 smart_file_input = os.path.expanduser("~/Data/GEMINI/stations/taz-parking-sparse-fast-limited-l2-150-lowtech-b.csv")
 nrel_file_converted_input = os.path.expanduser(nrel_file_input.split(".")[0] + "_converted.csv")
 smart_file_updated_input = os.path.expanduser(smart_file_input.split(".")[0] + "_updated.csv")
 smart_file_with_fees_input = os.path.expanduser(nrel_file_input.split(".")[0] + "_withFees.csv.gz")
 
 transformer = Transformer.from_crs(7131, 4326, always_xy=True)
-inProj = Proj(init='epsg:7131')
-outProj = Proj(init='epsg:4326')
-
-
-def to_wgs84(row):
-    return pd.Series(transform(inProj, outProj, row["lat"], row["lon"]))
 
 
 def convert_nrel_data(nrel_file, nrel_file_converted):
