@@ -13,8 +13,8 @@ import beam.agentsim.scheduler.BeamAgentScheduler.{CompletionNotice, ScheduleTri
 import beam.agentsim.scheduler.Trigger
 import beam.agentsim.scheduler.Trigger.TriggerWithId
 import beam.sim.config.BeamConfig.Beam.Agentsim
+import beam.utils.BeamVehicleUtils.toPowerInKW
 import beam.utils.MathUtils.roundUniformly
-import beam.utils.BeamVehicleUtils.{readBeamVehicleTypeFile, readVehiclesFile, toPowerInKW}
 import beam.utils.{MathUtils, VehicleIdGenerator}
 import org.apache.commons.math3.distribution.EnumeratedDistribution
 import org.apache.commons.math3.random.MersenneTwister
