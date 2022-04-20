@@ -102,13 +102,8 @@ def assign_fees_to_infrastructure(nrel_data, fees_data, smart_file_with_fees):
             cumulated = cumulated + float(row2.numStalls) / float(tot_stalls)
             if cumulated >= rd_prob:
                 break
-        if "(150.0|DC)" in row["chargingPointType"]:
-            memorized_fee = memorized_fee * 1.6
-        elif "(250.0|DC)" in row["chargingPointType"]:
-            memorized_fee = memorized_fee * 2.2
-        elif "(400.0|DC)" in row["chargingPointType"]:
-            memorized_fee = memorized_fee * 3.1
-        row["feeInCents"] = memorized_fee
+        power = float(row["chargingPointType"].split("(")[1].split("|")[0])
+        row["feeInCents"] = memorized_fee * max(power/150.0, 1.0)
     output = pd.DataFrame.from_dict(df_dict)
     output.reset_index(drop=True, inplace=True)
     output.to_csv(smart_file_with_fees, index=False)
