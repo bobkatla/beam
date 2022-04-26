@@ -48,7 +48,7 @@ object FailFast extends LazyLogging {
       config.beam.agentsim.agents.rideHail.allocationManager.name
         .equals(
           "DEFAULT_MANAGER"
-        ) && config.beam.agentsim.agents.rideHail.allocationManager.requestBufferTimeoutInSeconds == 0
+        ) && config.beam.agentsim.agents.rideHail.allocationManager.requestBufferTimeoutInSeconds > 0
     ) {
       throw new RuntimeException(
         "AllocationManager DEFAULT_MANAGER is not yet compatible with a non-zero parameter value for requestBufferTimeoutInSeconds. Either make that parameter zero or use POOLING_ALONSO_MORA for the allocationManager."
