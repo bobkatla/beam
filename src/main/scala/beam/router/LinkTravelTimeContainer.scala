@@ -30,10 +30,10 @@ class LinkTravelTimeContainer(fileName: String, timeBinSizeInSeconds: Int, maxHo
         line != null
       }) {
         val linkStats = line.split(",")
-        if (linkStats.length == 10 && "avg".equalsIgnoreCase(linkStats(7))) {
+        if (linkStats.length == 12 && "avg".equalsIgnoreCase(linkStats(7))) {
           val linkId = linkStats(0)
           val hour = linkStats(3).toDouble.toInt
-          val travelTime = linkStats(9).toDouble
+          val travelTime = linkStats(11).toDouble
           linkTravelTimeMap.get(linkId) match {
             case Some(travelTimePerHourArr) =>
               travelTimePerHourArr.update(hour, travelTime)
