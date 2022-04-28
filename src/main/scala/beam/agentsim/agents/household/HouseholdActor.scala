@@ -529,26 +529,34 @@ object HouseholdActor {
       // Pipe my cars through the parking manager
       // and complete initialization only when I got them all.
       Future
-        .sequence(vehicles.filter(_._2.beamVehicleType.automationLevel > 3).values.map { vehicle =>
-          vehicle.setManager(Some(self))
-          for {
-            ParkingInquiryResponse(stall, _, _) <- sendParkingOrChargingInquiry(vehicle, triggerId)
-          } {
-            vehicle.useParkingStall(stall)
-            vehicle.spaceTime = SpaceTime(stall.locationUTM.getX, stall.locationUTM.getY, 0)
-            if (stall.chargingPointType.isDefined) {
-              chargingNetworkManager ! ChargingPlugRequest(
-                0,
-                vehicle,
-                stall,
-                // use first household member id as stand-in.
-                household.getMemberIds.get(0),
-                triggerId
-              )
+        .sequence(
+          vehicles.values
+            .filter { beamVehicle =>
+              val res = beamVehicle.fuelLevelRatio <= 0.80 && beamVehicle.beamVehicleType.automationLevel > 3
+              log.info("Not plugging in the vehicle {} for charging.", beamVehicle.id)
+              res
             }
-          }
-          Future.successful(())
-        })
+            .map { vehicle =>
+              vehicle.setManager(Some(self))
+              for {
+                ParkingInquiryResponse(stall, _, _) <- sendParkingOrChargingInquiry(vehicle, triggerId)
+              } {
+                vehicle.useParkingStall(stall)
+                vehicle.spaceTime = SpaceTime(stall.locationUTM.getX, stall.locationUTM.getY, 0)
+                if (stall.chargingPointType.isDefined) {
+                  chargingNetworkManager ! ChargingPlugRequest(
+                    0,
+                    vehicle,
+                    stall,
+                    // use first household member id as stand-in.
+                    household.getMemberIds.get(0),
+                    triggerId
+                  )
+                }
+              }
+              Future.successful(())
+            }
+        )
         .map(_ => CompletionNotice(triggerId, triggersToSchedule))
         .pipeTo(schedulerRef)
     }
