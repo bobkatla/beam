@@ -21,7 +21,7 @@ class TAZSkimsCollector(scheduler: ActorRef, beamServices: BeamServices, vehicle
     extends Actor
     with ActorLogging {
   import TAZSkimsCollector._
-  private implicit val timeout: Timeout = Timeout(50000, TimeUnit.SECONDS)
+  private implicit val timeo = Timeout(50000, TimeUnit.SECONDS)
   private implicit val executionContext: ExecutionContext = context.dispatcher
   private implicit val debug: Debug = beamServices.beamConfig.beam.debug
   private val endOfSimulationTime: Int = DateUtils.getEndOfTime(beamServices.beamScenario.beamConfig)
