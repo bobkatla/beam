@@ -1192,7 +1192,6 @@ trait ChoosesMode {
           combinedItinerariesForChoice.filter(_.tripClassifier == CAR)
 //          combinedItinerariesForChoice.filter(trip =>
 //          trip.tripClassifier == WALK & !trip.legs.view.filter(_.beamLeg.mode == WALK).exists(leg => leg.beamLeg.travelPath.distanceInM > 4828.03))
-
         case Some(mode) =>
           combinedItinerariesForChoice.filter(_.tripClassifier == mode)
         case _ =>
@@ -1206,7 +1205,10 @@ trait ChoosesMode {
         matsimPlan.getPerson.getCustomAttributes
           .get("beam-attributes")
           .asInstanceOf[AttributesOfIndividual]
-      val availableAlts = Some(filteredItinerariesForChoice.map(_.tripClassifier).mkString(":"))
+      val availableAlts: Option[String] = Some(filteredItinerariesForChoice.map(_.tripClassifier).mkString(":")) match {
+        case Some("CAR:WALK") => Option("CAR")
+        case _ => _
+      }
 
       def gotoFinishingModeChoice(chosenTrip: EmbodiedBeamTrip) = {
         goto(FinishingModeChoice) using choosesModeData.copy(
