@@ -1166,12 +1166,7 @@ trait ChoosesMode {
       val filteredItinerariesForChoice = (choosesModeData.personData.currentTripMode match {
         // if it's the CAR
         case Some(mode) if mode == CAR || mode == WALK =>
-          (isFirstTripWithinTour(personData, nextAct)) match {
-            case true =>
-              combinedItinerariesForChoice.filter(_.tripClassifier == CAR)
-            case _ =>
-              combinedItinerariesForChoice
-          }
+          combinedItinerariesForChoice.filter(_.tripClassifier == CAR)
 
         case Some(mode) if mode == DRIVE_TRANSIT || mode == BIKE_TRANSIT =>
           (isFirstOrLastTripWithinTour(personData, nextAct), personData.hasDeparted) match {
