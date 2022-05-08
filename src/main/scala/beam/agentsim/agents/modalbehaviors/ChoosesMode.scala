@@ -1207,7 +1207,7 @@ trait ChoosesMode {
           .asInstanceOf[AttributesOfIndividual]
       val availableAlts: Option[String] = Some(filteredItinerariesForChoice.map(_.tripClassifier).mkString(":")) match {
         case Some("CAR:WALK") => Option("CAR")
-        case _ => _
+        case _ => Option(filteredItinerariesForChoice.map(_.tripClassifier).mkString(":"))
       }
 
       def gotoFinishingModeChoice(chosenTrip: EmbodiedBeamTrip) = {
