@@ -243,7 +243,9 @@ trait ChoosesMode {
         correctedCurrentTripMode match {
           case None | Some(CAR | BIKE) =>
             // In these cases, a personal vehicle will be involved, but filter out teleportation vehicles
-            newlyAvailableBeamVehicles.filterNot(v => BeamVehicle.isSharedTeleportationVehicle(v.id))
+            // We give them all the options for now
+            newlyAvailableBeamVehicles
+//            newlyAvailableBeamVehicles.filterNot(v => BeamVehicle.isSharedTeleportationVehicle(v.id))
           case Some(HOV2_TELEPORTATION | HOV3_TELEPORTATION) =>
             // In these cases, also include teleportation vehicles
             newlyAvailableBeamVehicles
@@ -1162,6 +1164,15 @@ trait ChoosesMode {
         availableModesForPerson(matsimPlan.getPerson, choosesModeData.excludeModes)
 
       val filteredItinerariesForChoice = (choosesModeData.personData.currentTripMode match {
+        // if it's the CAR
+        case Some(mode) if mode == CAR || mode == WALK =>
+          (isFirstTripWithinTour(personData, nextAct)) match {
+            case true =>
+              combinedItinerariesForChoice.filter(_.tripClassifier == CAR)
+            case _ =>
+              combinedItinerariesForChoice
+          }
+
         case Some(mode) if mode == DRIVE_TRANSIT || mode == BIKE_TRANSIT =>
           (isFirstOrLastTripWithinTour(personData, nextAct), personData.hasDeparted) match {
             case (true, false) =>
@@ -1171,6 +1182,7 @@ trait ChoosesMode {
                 trip.tripClassifier == WALK_TRANSIT || trip.tripClassifier == RIDE_HAIL_TRANSIT
               )
           }
+
         case Some(mode) if mode == WALK_TRANSIT || mode == RIDE_HAIL_TRANSIT =>
           combinedItinerariesForChoice.filter(trip =>
             trip.tripClassifier == WALK_TRANSIT || trip.tripClassifier == RIDE_HAIL_TRANSIT
@@ -1188,9 +1200,9 @@ trait ChoosesMode {
           combinedItinerariesForChoice.filter(_.tripClassifier == mode)
         case _ =>
           combinedItinerariesForChoice
-//  }).filter(itin => availableModesForTrips.contains(itin.tripClassifier))
-  }).filter(itin => availableModesForTrips.contains(itin.tripClassifier) & !itin.legs.view.filter(_.beamLeg.mode == WALK)
-    .exists(leg => leg.beamLeg.travelPath.distanceInM > 4828.03))
+  }).filter(itin => availableModesForTrips.contains(itin.tripClassifier))
+//  }).filter(itin => availableModesForTrips.contains(itin.tripClassifier) & !itin.legs.view.filter(_.beamLeg.mode == WALK)
+//    .exists(leg => leg.beamLeg.travelPath.distanceInM > 4828.03))
 
 
       val attributesOfIndividual =

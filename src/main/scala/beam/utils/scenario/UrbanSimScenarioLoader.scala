@@ -379,7 +379,7 @@ class UrbanSimScenarioLoader(
       mutable.Map(ArrayBuffer(households.toSeq: _*).groupBy(_.cars).toSeq: _*)
 
     val numberOfWorkVehiclesToCreate =
-      min(numberOfWorkers - numberOfWorkersWithVehicles, goalCarTotal - totalCars)
+      10 * min(numberOfWorkers - numberOfWorkersWithVehicles, goalCarTotal - totalCars)
     val likelihoodToCreateVehicle =
       numberOfWorkVehiclesToCreate.toDouble / (numberOfWorkers - numberOfWorkersWithVehicles).toDouble
     var currentTotalCars = totalCars
