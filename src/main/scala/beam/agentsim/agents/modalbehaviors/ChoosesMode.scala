@@ -1163,10 +1163,8 @@ trait ChoosesMode {
       val availableModesForTrips: Seq[BeamMode] =
         availableModesForPerson(matsimPlan.getPerson, choosesModeData.excludeModes)
 
-      val filteredItinerariesForChoice = (choosesModeData.personData.currentTripMode match {
+      val filteredItinerariesForChoiceOne = (choosesModeData.personData.currentTripMode match {
         // if it's the CAR
-        case Some(mode) if mode == CAR || mode == WALK =>
-          combinedItinerariesForChoice.filter(_.tripClassifier == CAR)
 
         case Some(mode) if mode == DRIVE_TRANSIT || mode == BIKE_TRANSIT =>
           (isFirstOrLastTripWithinTour(personData, nextAct), personData.hasDeparted) match {
@@ -1196,20 +1194,64 @@ trait ChoosesMode {
           combinedItinerariesForChoice.filter(_.tripClassifier == mode)
         case _ =>
           combinedItinerariesForChoice
-//  }).filter(itin => availableModesForTrips.contains(itin.tripClassifier))
-  }).filter(itin => availableModesForTrips.contains(itin.tripClassifier) & !itin.legs.view.filter(_.beamLeg.mode == WALK)
-    .exists(leg => leg.beamLeg.travelPath.distanceInM > 4828.03))
+  }).filter(itin => availableModesForTrips.contains(itin.tripClassifier))
+//  }).filter(itin => availableModesForTrips.contains(itin.tripClassifier) & !itin.legs.view.filter(_.beamLeg.mode == WALK)
+//    .exists(leg => leg.beamLeg.travelPath.distanceInM > 4828.03))
 
+//      val filteredItinerariesForChoice
+
+
+//      val filteredItinerariesForChoice =
+//        if (filteredItinerariesForChoiceOne.contains(CAR) && filteredItinerariesForChoiceOne.contains(WALK) && filteredItinerariesForChoiceOne.length == 2) {
+////          filteredItinerariesForChoiceOne.dropRight(1)
+//          filteredItinerariesForChoiceOne.filterNot(_.tripClassifier == CAR)
+//        } else {
+//          filteredItinerariesForChoiceOne
+//        }
+
+
+//    else if (usedModes.size == 3 && usedModes.contains(CAR) && usedModes.contains(WALK) && usedModes.contains(WALK_TRANSIT)) {
+//      filteredItinerariesForChoiceOne.filter(_.tripClassifier == CAR)
+//    } else if (usedModes.size == 3 && usedModes.contains(CAR) && usedModes.contains(WALK) && usedModes.contains(BIKE)) {
+//      filteredItinerariesForChoiceOne.filter(_.tripClassifier == CAR)
+//    } else if (usedModes.size == 4 && usedModes.contains(CAR) && usedModes.contains(WALK) && usedModes.contains(BIKE) && usedModes.contains(WALK_TRANSIT)) {
+//      filteredItinerariesForChoiceOne.filter(_.tripClassifier == CAR)
+//    } else if (usedModes.size == 3 && usedModes.contains(CAR) && usedModes.contains(WALK) && usedModes.contains(DRIVE_TRANSIT)) {
+//      filteredItinerariesForChoiceOne.filter(_.tripClassifier == CAR)
+//    }
+
+
+      val filteredItinerariesForChoice: Vector[EmbodiedBeamTrip] = {
+        val usedModes: Set[BeamMode] = filteredItinerariesForChoiceOne.map(_.tripClassifier).toSet
+        if (usedModes.size == 2 && usedModes.contains(CAR) && usedModes.contains(WALK)) {
+          filteredItinerariesForChoiceOne.filter(_.tripClassifier == CAR)
+        }
+        else {
+          filteredItinerariesForChoiceOne
+        }
+      }
+
+//      val filteredItinerariesForChoice = {
+//        val usedModes = filteredItinerariesForChoiceOne.map(_.tripClassifier).toSet
+//        if (usedModes == Set(CAR, WALK)) {
+//          filteredItinerariesForChoiceOne.filter(_.tripClassifier == WALK)
+//        } else {
+//          filteredItinerariesForChoiceOne
+//        }
+//      }
 
       val attributesOfIndividual =
         matsimPlan.getPerson.getCustomAttributes
           .get("beam-attributes")
           .asInstanceOf[AttributesOfIndividual]
-      val availableAlts: Option[String] = Some(filteredItinerariesForChoice.map(_.tripClassifier).mkString(":"))
-//      match {
-//        case Some("CAR:WALK") => Option("CAR")
-//        case _ => Option(filteredItinerariesForChoice.map(_.tripClassifier).mkString(":"))
-//      }
+      val availableAlts: Option[String] = Some(filteredItinerariesForChoiceOne.map(_.tripClassifier).mkString(":"))
+      match {
+        case Some("CAR:WALK") =>
+          {Option("CAR")}
+        case _ => Option(filteredItinerariesForChoice.map(_.tripClassifier).mkString(":"))
+      }
+
+
 
       def gotoFinishingModeChoice(chosenTrip: EmbodiedBeamTrip) = {
         goto(FinishingModeChoice) using choosesModeData.copy(
