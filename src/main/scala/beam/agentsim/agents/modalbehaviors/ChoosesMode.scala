@@ -362,8 +362,12 @@ trait ChoosesMode {
           makeRequestWith(withTransit = false, Vector(bodyStreetVehicle))
           responsePlaceholders = makeResponsePlaceholders(withRouting = true)
         case Some(WALK) =>
+          makeRideHailRequest()
+          if (!choosesModeData.isWithinTripReplanning) {
+            requestId = makeRideHailTransitRoutingRequest(bodyStreetVehicle)
+          }
           responsePlaceholders = makeResponsePlaceholders(withRouting = true)
-          makeRequestWith(withTransit = true, Vector(bodyStreetVehicle))
+          makeRequestWith(withTransit = true, newlyAvailableBeamVehicles.map(_.streetVehicle) :+ bodyStreetVehicle, possibleEgressVehicles = dummySharedVehicles)
         case Some(WALK_TRANSIT) =>
           responsePlaceholders = makeResponsePlaceholders(withRouting = true)
           makeRequestWith(withTransit = true, Vector(bodyStreetVehicle))
@@ -721,8 +725,8 @@ trait ChoosesMode {
           if availableModes.contains(CAR) && replanningIsAvailable =>
         Some(mode)
       case Some(mode) if availableModes.contains(mode) && replanningIsAvailable => Some(mode)
-      case Some(mode) if availableModes.contains(mode)                          => Some(RIDE_HAIL)
-      case None if !replanningIsAvailable                                       => Some(RIDE_HAIL)
+      case Some(mode) if availableModes.contains(mode)                          => Some(WALK)
+      case None if !replanningIsAvailable                                       => Some(WALK)
       case _                                                                    => None
     }
   }
