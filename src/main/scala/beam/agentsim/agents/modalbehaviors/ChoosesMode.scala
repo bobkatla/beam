@@ -362,14 +362,11 @@ trait ChoosesMode {
           makeRequestWith(withTransit = false, Vector(bodyStreetVehicle))
           responsePlaceholders = makeResponsePlaceholders(withRouting = true)
         case Some(WALK) =>
-          responsePlaceholders = makeResponsePlaceholders(
-            withRouting = true,
-            withRideHail = true,
-            withRideHailTransit = !choosesModeData.isWithinTripReplanning)
           makeRideHailRequest()
           if (!choosesModeData.isWithinTripReplanning) {
             requestId = makeRideHailTransitRoutingRequest(bodyStreetVehicle)
           }
+          responsePlaceholders = makeResponsePlaceholders(withRouting = true)
           makeRequestWith(withTransit = true, newlyAvailableBeamVehicles.map(_.streetVehicle) :+ bodyStreetVehicle, possibleEgressVehicles = dummySharedVehicles)
         case Some(WALK_TRANSIT) =>
           responsePlaceholders = makeResponsePlaceholders(withRouting = true)
@@ -1170,7 +1167,7 @@ trait ChoosesMode {
       val availableModesForTrips: Seq[BeamMode] =
         availableModesForPerson(matsimPlan.getPerson, choosesModeData.excludeModes)
 
-      val filteredItinerariesForChoiceOne = (choosesModeData.personData.currentTripMode match {
+      val filteredItinerariesForChoice = (choosesModeData.personData.currentTripMode match {
         // if it's the CAR
 
         case Some(mode) if mode == DRIVE_TRANSIT || mode == BIKE_TRANSIT =>
@@ -1251,7 +1248,7 @@ trait ChoosesMode {
         matsimPlan.getPerson.getCustomAttributes
           .get("beam-attributes")
           .asInstanceOf[AttributesOfIndividual]
-      val availableAlts: Option[String] = Some(filteredItinerariesForChoiceOne.map(_.tripClassifier).mkString(":"))
+      val availableAlts: Option[String] = Some(filteredItinerariesForChoice.map(_.tripClassifier).mkString(":"))
 //      match {
 //        case Some("CAR:WALK") =>
 //          {Option("CAR")}
