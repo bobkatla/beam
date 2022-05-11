@@ -721,8 +721,8 @@ trait ChoosesMode {
           if availableModes.contains(CAR) && replanningIsAvailable =>
         Some(mode)
       case Some(mode) if availableModes.contains(mode) && replanningIsAvailable => Some(mode)
-      case Some(mode) if availableModes.contains(mode)                          => Some(WALK)
-      case None if !replanningIsAvailable                                       => Some(WALK)
+      case Some(mode) if availableModes.contains(mode)                          => Some(RIDE_HAIL)
+      case None if !replanningIsAvailable                                       => Some(RIDE_HAIL)
       case _                                                                    => None
     }
   }
@@ -1245,11 +1245,11 @@ trait ChoosesMode {
           .get("beam-attributes")
           .asInstanceOf[AttributesOfIndividual]
       val availableAlts: Option[String] = Some(filteredItinerariesForChoiceOne.map(_.tripClassifier).mkString(":"))
-      match {
-        case Some("CAR:WALK") =>
-          {Option("CAR")}
-        case _ => Option(filteredItinerariesForChoice.map(_.tripClassifier).mkString(":"))
-      }
+//      match {
+//        case Some("CAR:WALK") =>
+//          {Option("CAR")}
+//        case _ => Option(filteredItinerariesForChoice.map(_.tripClassifier).mkString(":"))
+//      }
 
 
 
