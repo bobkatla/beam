@@ -362,11 +362,14 @@ trait ChoosesMode {
           makeRequestWith(withTransit = false, Vector(bodyStreetVehicle))
           responsePlaceholders = makeResponsePlaceholders(withRouting = true)
         case Some(WALK) =>
+          responsePlaceholders = makeResponsePlaceholders(
+            withRouting = true,
+            withRideHail = true,
+            withRideHailTransit = !choosesModeData.isWithinTripReplanning)
           makeRideHailRequest()
           if (!choosesModeData.isWithinTripReplanning) {
             requestId = makeRideHailTransitRoutingRequest(bodyStreetVehicle)
           }
-          responsePlaceholders = makeResponsePlaceholders(withRouting = true)
           makeRequestWith(withTransit = true, newlyAvailableBeamVehicles.map(_.streetVehicle) :+ bodyStreetVehicle, possibleEgressVehicles = dummySharedVehicles)
         case Some(WALK_TRANSIT) =>
           responsePlaceholders = makeResponsePlaceholders(withRouting = true)
