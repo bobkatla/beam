@@ -1228,15 +1228,15 @@ trait ChoosesMode {
 //    }
 
 
-      val filteredItinerariesForChoice: Vector[EmbodiedBeamTrip] = {
-        val usedModes: Set[BeamMode] = filteredItinerariesForChoiceOne.map(_.tripClassifier).toSet
-        if (usedModes.size == 2 && usedModes.contains(CAR) && usedModes.contains(WALK)) {
-          filteredItinerariesForChoiceOne.filter(_.tripClassifier == CAR)
-        }
-        else {
-          filteredItinerariesForChoiceOne
-        }
-      }
+//      val filteredItinerariesForChoice: Vector[EmbodiedBeamTrip] = {
+//        val usedModes: Set[BeamMode] = filteredItinerariesForChoiceOne.map(_.tripClassifier).toSet
+//        if (usedModes.size == 2 && usedModes.contains(CAR) && usedModes.contains(WALK)) {
+//          filteredItinerariesForChoiceOne.filter(_.tripClassifier == CAR)
+//        }
+//        else {
+//          filteredItinerariesForChoiceOne
+//        }
+//      }
 
 //      val filteredItinerariesForChoice = {
 //        val usedModes = filteredItinerariesForChoiceOne.map(_.tripClassifier).toSet
