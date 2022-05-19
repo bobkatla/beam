@@ -1249,11 +1249,11 @@ trait ChoosesMode {
           .get("beam-attributes")
           .asInstanceOf[AttributesOfIndividual]
       val availableAlts: Option[String] = Some(filteredItinerariesForChoice.map(_.tripClassifier).mkString(":"))
-//      match {
-//        case Some("CAR:WALK") =>
-//          {Option("CAR")}
-//        case _ => Option(filteredItinerariesForChoice.map(_.tripClassifier).mkString(":"))
-//      }
+      match {
+        case Some("CAR:WALK") =>
+          {Option("CAR")}
+        case _ => Option(filteredItinerariesForChoice.map(_.tripClassifier).mkString(":"))
+      }
 
 
 
