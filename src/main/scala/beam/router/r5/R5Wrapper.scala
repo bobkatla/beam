@@ -207,7 +207,7 @@ class R5Wrapper(workerParams: R5Parameters, travelTime: TravelTime, travelTimeNo
     // particularly in the presence of tolls.
     profileRequest.carSpeed = carWeightCalculator.maxFreeSpeed.toFloat
     profileRequest.maxWalkTime = 30
-    profileRequest.maxCarTime = 30
+    profileRequest.maxCarTime = 60
     profileRequest.maxBikeTime = 30
     // Maximum number of transit segments. This was previously hardcoded as 4 in R5, now it is a parameter
     // that defaults to 8 unless I reset it here. It is directly related to the amount of work the
