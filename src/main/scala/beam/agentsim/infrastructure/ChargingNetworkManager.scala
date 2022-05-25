@@ -10,6 +10,7 @@ import beam.agentsim.agents.vehicles.VehicleManager.ReservedFor
 import beam.agentsim.agents.vehicles._
 import beam.agentsim.events.RefuelSessionEvent.{NotApplicable, ShiftStatus}
 import beam.agentsim.infrastructure.ChargingNetwork.{ChargingStation, ChargingStatus, ChargingVehicle}
+import beam.agentsim.infrastructure.ParkingInquiry.{ParkingActivityType, ParkingSearchMode}
 import beam.agentsim.infrastructure.ParkingInquiry.ParkingSearchMode.EnRouteCharging
 import beam.agentsim.infrastructure.power.{PowerController, SitePowerManager}
 import beam.agentsim.scheduler.BeamAgentScheduler.{CompletionNotice, ScheduleTrigger}
@@ -93,11 +94,24 @@ class ChargingNetworkManager(
 
     case inquiry: ParkingInquiry =>
       log.debug(s"Received parking inquiry: $inquiry")
-      chargingNetworkHelper.get(inquiry.reservedFor.managerId).processParkingInquiry(inquiry) foreach {
-        parkingResponse =>
-          if (parkingResponse.stall.chargingPointType.isDefined)
-            inquiry.beamVehicle foreach (v => vehicle2InquiryMap.put(v.id, inquiry))
-          sender() ! parkingResponse
+      chargingNetworkHelper.get(inquiry.reservedFor.managerId).processParkingInquiry(inquiry) foreach { response =>
+        if (response.stall.chargingPointType.isDefined)
+          inquiry.beamVehicle foreach (v => vehicle2InquiryMap.put(v.id, inquiry))
+        val parkingResponse = inquiry.searchMode match {
+          case ParkingSearchMode.EnRouteCharging =>
+            val numAvailableChargers: Int = chargingNetworkHelper
+              .get(response.stall.reservedFor.managerId)
+              .lookupStation(response.stall.parkingZoneId)
+              .map(_.numAvailableChargers)
+              .getOrElse(0)
+            if (numAvailableChargers > 0) response
+            else {
+              val defaultStall = ParkingStall.defaultStall(response.stall.locationUTM)
+              response.copy(stall = defaultStall)
+            }
+          case _ => response
+        }
+        sender() ! parkingResponse
       }
 
     case TriggerWithId(InitializeTrigger(_), triggerId) =>
