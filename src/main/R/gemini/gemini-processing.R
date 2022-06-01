@@ -25,7 +25,7 @@ infra5bBase <- readCsv(pp(workDir, "/2022-04-28/_models/infrastructure/4b_output
 infra5bBase[startsWith(reservedFor,"household")]$reservedFor <- "Any"
 write.csv(
   infra5bBase,
-  file = pp(workDir, "/2022-04-28/_models/infrastructure/4b_output_2022_Apr_13_pubClust_withFees_noHousehold.csv.gz"),
+  file = pp(workDir, "/2022-04-28/_models/infrastructure/4b_output_2022_Apr_13_pubClust_withFees.csv"),
   row.names=FALSE,
   quote=FALSE)
 
