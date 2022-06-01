@@ -129,6 +129,8 @@ class Population(
           val bv = beamScenario.privateVehicles(BeamVehicle.createId(vid))
           val reservedFor =
             VehicleManager.createOrGetReservedFor(household.getId.toString, VehicleManager.TypeEnum.Household)
+          log
+            .info(s"Population: turning householdId ${household.getId.toString} to reservedFor ${reservedFor.toString}")
           bv.vehicleManagerId.set(reservedFor.managerId)
           bv.id -> bv
         }

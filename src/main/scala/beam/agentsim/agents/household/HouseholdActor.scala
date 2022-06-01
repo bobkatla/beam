@@ -668,13 +668,15 @@ object HouseholdActor {
       whenWhere: SpaceTime,
       manager: ActorRef
     ): BeamVehicle = {
-      val vehicleManagerId =
-        VehicleManager.createOrGetReservedFor(household.getId.toString, VehicleManager.TypeEnum.Household).managerId
+      val reservedFor =
+        VehicleManager.createOrGetReservedFor(household.getId.toString, VehicleManager.TypeEnum.Household)
+      logger
+        .info(s"HouseholdActor: turning householdId ${household.getId.toString} to reservedFor ${reservedFor.toString}")
       val vehicle = new BeamVehicle(
         Id.createVehicleId(personId.toString + "-emergency-" + vehicleIndex),
         new Powertrain(vehicleType.primaryFuelConsumptionInJoulePerMeter),
         vehicleType,
-        new AtomicReference[Id[VehicleManager]](vehicleManagerId)
+        new AtomicReference[Id[VehicleManager]](reservedFor.managerId)
       )
       vehicle.initializeFuelLevelsFromUniformDistribution(
         beamScenario.beamConfig.beam.agentsim.agents.vehicles.meanPrivateVehicleStartingSOC

@@ -21,7 +21,13 @@ shpFile <- pp(workDir, "/shapefile/Oakland+Alameda+TAZ/Transportation_Analysis_Z
 oaklandCbg <- st_read(shpFile)
 
 infra5aBase <- readCsv(pp(workDir, "/2022-04-28/_models/infrastructure/4a_output_2022_Apr_13_pubClust_withFees_aggregated.csv"))
-infra5bBase <- readCsv(pp(workDir, "/2022-04-28/_models/infrastructure/4b_output_2022_Apr_13_pubClust_withFees_aggregated.csv"))
+infra5bBase <- readCsv(pp(workDir, "/2022-04-28/_models/infrastructure/4b_output_2022_Apr_13_pubClust_withFees.csv.gz"))
+infra5bBase[startsWith(reservedFor,"household")]$reservedFor <- "Any"
+write.csv(
+  infra5bBase,
+  file = pp(workDir, "/2022-04-28/_models/infrastructure/4b_output_2022_Apr_13_pubClust_withFees_noHousehold.csv.gz"),
+  row.names=FALSE,
+  quote=FALSE)
 
 vehicles1 <- readCsv(pp(workDir, "/vehicles.4Base.csv"))
 vehicles1$stateOfCharge <- as.double(vehicles1$stateOfCharge)

@@ -521,10 +521,7 @@ object ParkingZoneFileUtils extends ExponentialLazyLogging {
   ): Int = {
     reservedFor.managerType match {
       case VehicleManager.TypeEnum.Household =>
-        if (rand.nextDouble() <= scalingFactor)
-          initialNumStalls.toInt
-        else
-          0
+        initialNumStalls.toInt
       case _ =>
         val expectedNumberOfStalls = initialNumStalls * scalingFactor
         MathUtils.roundUniformly(expectedNumberOfStalls, rand).toInt
@@ -537,7 +534,9 @@ object ParkingZoneFileUtils extends ExponentialLazyLogging {
     defaultReservedFor: Option[ReservedFor] = None
   ): ReservedFor = {
     VehicleManager.createOrGetReservedFor(reservedForString, beamConfigMaybe) match {
-      case Some(reservedFor)                   => reservedFor
+      case Some(reservedFor) =>
+        logger.info(s"ParkingZoneFileUtils. This is reserved for from parking file: ${reservedFor.toString}")
+        reservedFor
       case None if defaultReservedFor.nonEmpty => defaultReservedFor.get
       case _ =>
         logger.warn(
