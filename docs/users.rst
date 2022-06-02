@@ -13,9 +13,19 @@ System Requirements
 
 * At least 8GB RAM
 * Windows, Mac OSX, Linux
-* Java Runtime Environment or Java Development Kit 1.8
-* To verify your JRE: https://www.java.com/en/download/help/version_manual.xml
-* To download JRE 1.8 (AKA JRE 8): http://www.oracle.com/technetwork/java/javase/downloads/jre8-downloads-2133155.html
+* Java Development Kit 1.8. Oracle JDK 1.8: https://www.oracle.com/java/technologies/javase-jdk8-downloads.html. You can also use OpenJDK 8 JDK. For Ubuntu you can get it installed by running `sudo apt-get install openjdk-8-jdk`
+* Verify that you have both java runtime and java compiler:
+
+.. code-block:: bash
+
+    ubuntu@ip-172-31-14-187:~/git/beam$ java -version
+    openjdk version "1.8.0_252"
+    OpenJDK Runtime Environment (build 1.8.0_252-8u252-b09-1~18.04-b09)
+    OpenJDK 64-Bit Server VM (build 25.252-b09, mixed mode)
+    ubuntu@ip-172-31-14-187:~/git/beam$ javac -version
+    javac 1.8.0_252
+    ubuntu@ip-172-31-14-187:~/git/beam$              
+
 * We also recommend downloading the VIA vizualization app and obtaining a free or paid license: https://simunto.com/via/
 * Git and Git-LFS
 
@@ -24,8 +34,8 @@ Prerequisites :
 
 **Install Java**
 
-BEAM requires Java 1.8 JDK / JRE to be installed. If a different version of java is already installed on your system, please upgrade the version to 1.8.
-See this `link <https://www.java.com/en/download/help/version_manual.xml>`_ for steps to check the current version of your JRE.
+BEAM requires Java 1.8 JDK. If a different version of java is already installed on your system, please upgrade the version to 1.8.
+See this `link <https://www.oracle.com/java/technologies/javase-jdk8-downloads.html>`_ for steps to check the current version of your JDK.
 
 If java is not already installed on your system , please follow this `download manual <https://www.java.com/en/download/manual.jsp>`_ to install java on your system.
 
@@ -91,18 +101,19 @@ Clone the beam repository::
 Change directories into that repository::
 
    cd beam
+
 Fetch the remote branches and tags::
 
     git fetch
 
-Now checkout the develop branch::
+Now checkout the latest stable version of BEAM, v0.7.0::
 
-   git checkout develop
+   git checkout v0.7.0
 
 
 Run the gradle command to compile BEAM, this will also downloaded all required dependencies automatically::
 
-   gradle classes
+   ./gradlew classes
 
 Now you're ready to run BEAM! 
 
@@ -141,6 +152,7 @@ The outputs are written to the 'output' directory, should see results appear in 
 
 Optionally you can also run BEAM from your favourite IDE . Check the below section on how to configure and run BEAM using Intellij IDEA.
 
+There is a way to watch real-time graphs from a BEAM run, see :ref:`real-time-graphs`.
 
 Running BEAM with Intellij IDE
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -192,13 +204,48 @@ Steps to add a new configuration :
 
   * Main Class : beam.sim.RunBeam
   * VM options : -Xmx8g
-  * Program Arguments : --config test/input/beamville/beam.conf (this runs beaamville scenario, changes the folder path to run a different scenario)
+  * Program Arguments : --config test/input/beamville/beam.conf (this runs beamville scenario, changes the folder path to run a different scenario)
   * Working Directory : /home/beam/BEAM
   * Environment Variables : PWD=/home/beam/BEAM
-  * use submodule of path : beam.beam.main
+  * use submodule of path : beam.main
 * Click Ok to save the configuration.
 
 To add a configuration for a different scenario , follow the above steps and change the folder path to point to the required scenario in program arguments
+
+BEAM in Docker image
+^^^^^^^^^^^^^^^^^^^^
+
+**Building new BEAM image from any branch**
+
+There is a gradle commands to build new BEAM Docker image. This command will build a docker image and tag it with the `version` taken from build.gradle file.::
+
+    ./gradlew buildImage
+
+**Running the docker image with BEAM**
+
+To run the docker image with BEAM one needs to provide input folder with all input information (config, map, plans, etc.) and point to the output folder.
+
+For example here is a shell script which might be used to run the docker image. One needs to replace 'tag', input and output folder name::
+
+    #!/bin/bash
+
+    config=$1
+    beam_image="beammodel/beam:0.8.6"
+    input_folder_name="test"
+    output_folder_name="beam_output"
+    mkdir -m 777 $output_folder_name 2>/dev/null
+
+    max_ram='10g'
+    java_opts="-Xmx$max_ram -XX:+UnlockExperimentalVMOptions -XX:+UseCGroupMemoryLimitForHeap"
+
+    docker run \
+      --network host \
+      --env JAVA_OPTS="$java_opts" \
+      --mount source="$(pwd)/$input_folder_name",destination=/app/$input_folder_name,type=bind \
+      --mount source="$(pwd)/$output_folder_name",destination=/app/output,type=bind \
+      $beam_image --config=$config
+
+
 
 Scenarios
 ^^^^^^^^^
@@ -219,7 +266,7 @@ For more detailed inputs documentation, see :ref:`model-inputs`.
 
 BEAM follows the `MATSim convention`_ for most of the inputs required to run a simulation, though some inputs files can alternatively be provided in CSV instead of XML format. Also, the road network and transit system inputs are based on the `R5 requirements`_. The following is a brief overview of the minimum requirements needed to conduct a BEAM run. 
 
-.. _MATSim convention: http://archive.matsim.org/docs
+.. _MATSim convention: https://matsim.org/docs
 .. _R5 requirements: https://github.com/conveyal/r5
 
 * A configuration file (e.g. `beam.conf`)
@@ -321,7 +368,7 @@ Also note that `mnl_ride_hail_intercept` appears both in the level specification
 
 Experiment generation can be run using following command::
 
-  gradle -PmainClass=beam.experiment.ExperimentGenerator -PappArgs="['--experiments', 'test/input/beamville/example-experiment/experiment.yml']" execute
+  ./gradlew -PmainClass=beam.experiment.ExperimentGenerator -PappArgs="['--experiments', 'test/input/beamville/example-experiment/experiment.yml']" execute
 
 It's better to create a new sub-folder folder (e.g. 'calibration' or 'experiment-1') in your data input directory and put both templates and the experiment.yml there.
 The ExperimentGenerator will create a sub-folder next to experiment.yml named `runs` which will include all of the data needed to run the experiment along with a shell script to execute a local run. The generator also creates an `experiments.csv` file next to experiment.yml with a mapping between experimental group name, the level name and the value of the params associated with each level. 
@@ -405,7 +452,7 @@ has the same general structure as the one used to specify tuning hyperparameters
   executeClass: "beam.calibration.RunCalibration"
   beamBatch: "false"
   shutdownWait: "15"
-  shutdownBehavior: "stop"
+  shutdownBehavior: "terminate"
   s3Backup: "true"
   maxRAM: "140g"
   region: "us-west-2"
@@ -413,11 +460,9 @@ has the same general structure as the one used to specify tuning hyperparameters
 
 The major exceptions are the following:
 
-* Factors may have only a single numeric parameter, which may (at the moment) only take two levels (High and Low).
-These act as bounds on the values that SigOpt will try for a particular decision variable.
+* Factors may have only a single numeric parameter, which may (at the moment) only take two levels (High and Low). These act as bounds on the values that SigOpt will try for a particular decision variable.
 
-* The level of parallelism is controlled by a new parameter in the header called `numberOfWorkers`. Setting its value
-above 1 permits running calibrations in parallel in response to multiple concurrent open `Suggestions`.
+* The level of parallelism is controlled by a new parameter in the header called `numberOfWorkers`. Setting its value above 1 permits running calibrations in parallel in response to multiple concurrent open `Suggestions`.
 
 Create Experiment
 ~~~~~~~~~~~~~~~~~
@@ -454,8 +499,7 @@ following arguments:
 
 --num_iters     Number of SigOpt iterations to be conducted (in series).
 
---experiment_id     If an `experimentID` has already been defined, add it here to continue an experiment or put
-"None" to start a new experiment.
+--experiment_id     If an `experimentID` has already been defined, add it here to continue an experiment or put "None" to start a new experiment.
 
 --run_type      Can be local or remote
 
@@ -580,7 +624,9 @@ The console output should contain a command for the osmosis tool, a command line
 
 Copy the osmosis command generated by conversion tool and run from the command line from within the BEAM project directory:
 
-   osmosis --read-pbf file=/path/to/osm/file/south-dakota-latest.osm.pbf --bounding-box top=43.61080226522504 left=-96.78138443934351 bottom=43.51447260628691 right=-96.6915507011093 completeWays=yes completeRelations=yes clipIncompleteEntities=true --write-pbf file=/path/to/dest-osm.pbf
+::
+
+  osmosis --read-pbf file=/path/to/osm/file/south-dakota-latest.osm.pbf --bounding-box top=43.61080226522504 left=-96.78138443934351 bottom=43.51447260628691 right=-96.6915507011093 completeWays=yes completeRelations=yes clipIncompleteEntities=true --write-pbf file=/path/to/dest-osm.pbf
 
 10. Run BEAM
 
@@ -588,3 +634,42 @@ Copy the osmosis command generated by conversion tool and run from the command l
 * VM Options: -Xmx2g (or more if a large scenario)
 * Program arguments, path to beam config file from above, (e.g. --config "test/input/siouxfalls/siouxfalls.conf")
 * Environment variables: PWD=/path/to/beam/folder
+
+
+Converting BEAM events file into MATSim events file
+---------------------------------------------------
+
+There is a script to convert BEAM events into MATSim events so, one can use Via to visualize BEAM simulation results.
+
+The script will convert all PathTraversalEvents into sequence of various MATSim events.
+
+There are, at least, two ways to run conversion:
+ * directly run script from `beam/src/main/scala/beam/utils/beam_to_matsim/EventsByVehicleMode.scala`
+ * run script by gradle task:
+
+  ::
+
+  ./gradlew execute -PmainClass=beam.utils.beam_to_matsim.EventsByVehicleMode -PappArgs="[<parameters>]"
+
+Both ways require four parameters:
+ * BEAM events file path
+ * MATSim output file path
+ * Comma separated list of chosen vehicle modes
+ * Vehicle population fraction for sampling
+
+Example: `./gradlew execute -PmainClass=beam.utils.beam_to_matsim.EventsByVehicleMode -PappArgs="['BEAM events file path', 'output file path', 'car,bus', '1']" -PmaxRAM=16g`
+
+If it is required to sample not by just population but also select only vehicles that passes through specific circle with center in X,Y and radius R then there are 4 optional arguments.
+They should be provided together.
+
+Parameters for circle sampling:
+ * PhysSim network file path
+ * X circle coordinate
+ * Y circle coordinate
+ * radius R of circle
+
+Example: `./gradlew execute -PmainClass=beam.utils.beam_to_matsim.EventsByVehicleMode -PappArgs="['BEAM events file path', 'output file path', 'car,bus', '0.2', 'path to physSimNetwork.xml', '548966', '4179000', '5000']" -PmaxRAM=16g`
+
+Worth noting the fact that running the script require sufficient amount of computing resources corresponding to source events file size.
+For example: processing a BEAM file of 1.5Gb while selecting all vehicles (with fraction of 1) require about 16Gb memory for Java and takes about 12 minutes on modern laptop.
+During transformation the script will provide additional information about computation progress.

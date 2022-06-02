@@ -11,23 +11,23 @@ Repositories
 ^^^^^^^^^^^^
 The beam repository on github `is here. <https://github.com/LBNL-UCB-STI/beam>`_
 
-The convention for merging into the master branch is that master needs to be pass all tests and at least one other active BEAM developer needs to review your changes before merging. Please do this by creating a pull request from any new feature branches into master. We also encourage you to create pull requests early in your development cycle which gives other's an opportunity to observe and/or provide feedback in real time. When you are ready for a review, invite one or more through the pull request. 
+The convention for merging into the develop branch is that develop needs to be pass all tests and at least one other active BEAM developer needs to review your changes before merging. Please do this by creating a pull request from any new feature branches into develop. We also encourage you to create pull requests early in your development cycle which gives other's an opportunity to observe and/or provide feedback in real time. When you are ready for a review, invite one or more through the pull request.
 
 Please use the following naming convention for feature branches, "<initials-or-username>/<descriptive-feature-branch-name>". Adding the issue number is also helpful, e.g.:
 
-cjrs/issue112-update-docs
+cjrs/#112-update-docs
 
 An example workflow for contributing a new feature beam might look like this:
 
-+ create a new branch off of master (e.g. cjrs/issue112-update-docs)
++ create a new branch off of develop (e.g. cjrs/#112-update-docs)
 + push and create a pull request right away
-+ work in cjrs/issue112-update-docs
++ work in cjrs/#112-update-docs
 + get it to compile, pass tests
 + request reviews from pull request
-+ after reviews and any subsequent iterations, merge into master and close pull request
++ after reviews and any subsequent iterations, merge into develop and close pull request
 + delete feature branch unless continued work to happy imminently on same feature branch
 
-The pev-only and related feature branches hold a previous version of BEAM (v0.1.X) which is incompatible with master but is still used for modeling and analysis work.
+The pev-only and related feature branches hold a previous version of BEAM (v0.1.X) which is incompatible with develop but is still used for modeling and analysis work.
 
 Configuration
 ^^^^^^^^^^^^^
@@ -42,9 +42,9 @@ and start customizing the configurations to your use case.
 
 To add new parameters or change the structure of the configuration class itself, simply edit the `config-template.conf` file and run the gradle task::
 
-  gradle generateConfig
+  ./gradlew generateConfig
 
-This will generate a new class `src/main/scala/beam/metasim/config/BeamConfig.scala` which will reflect the new structure and parameters.
+This will generate a new class `src/main/scala/beam/sim/config/BeamConfig.scala` which will reflect the new structure and parameters.
 
 Environment Variables
 ^^^^^^^^^^^^^^^^^^^^^
@@ -83,8 +83,14 @@ File: :code:`~/Library/LaunchAgents/setenv.BEAM_OUTPUT.plist`::
       </dict>
     </plist>
 
-GIT-LFS timeout - how to proceed
+GIT-LFS - known issues
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+** IntelliJ IDEA credentials issue **
+
+Sometimes it might be possible that IntelliJ IDEA integration struggles with the credentials of git-lfs if they are different from your regular git credentials (which is most probably the case for beam). Hence if you changed files in beam that are tracked by git-lfs (e.g. vehicles.csv.gz) you should use command line git for pushing them to the server.
+
+** timeout **
+
 Sometimes it is possible to face a timeout issue when trying to push huge files. The steps below can be followed:
 
 #. Connect to some EC2 server inside the same Amazon S3 region: us-east-2
@@ -97,46 +103,71 @@ Sometimes it is possible to face a timeout issue when trying to push huge files.
 
 #. Just push the files as usual
 
-Keeping Production Data out of Master Branch
+Production Data And Git Submodules
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Production versus test data. Any branch beginning with "production" or "application" will contain data in the "production/" subfolder. This data should stay in that branch and not be merged into master. To keep the data out, the easiest practice is to simply keep merges one-way from master into the production branch and not vice versa.
+Production data is located in separate git repositories each scenario in its own repo.
 
-However, sometimes troubleshooting / debugging / development happens on a production branch. The cleanest way to get changes to source code or other non-production files back into master is the following.
+Separation of production data and code is needed for:
 
-Checkout your production branch::
+1. Reducing the git repository size for developers
+2. Easier addition or changing production data without merging back into develop code changes
+3. Ability to use any production data with any code branch/commit without creation of yet another git production branch
 
-  git checkout production-branch
 
-Bring branch even with master::
+These repositories have `beam-data-` prefix, e.g `beam-data-sfbay`
 
-  git merge master
+They are linked back to the parent repo by `git submodules <https://git-scm.com/book/en/v2/Git-Tools-Submodules>`_. For example sfbay is mapped to `production/sfbay`.
 
-Resolve conflicts if needed
+When you clone a parent project, by default you get the production data directories that contain submodules, but none of the files within them.
+To fetch production data manually type::
 
-Capture the files that are different now between production and master::
+   git submodule update --init --remote production/sfbay
 
-  git diff --name-only HEAD master > diff-with-master.txt
+(replace `sfbay` with other scenario if needed)
 
-You have created a file "diff-with-master.txt" containing a listing of every file that is different.
+If you don't need the production data anymore and want to remove it locally you can run::
 
-IMPORTANT!!!! -- Edit the file diff-with-master.txt and remove all production-related data (this typically will be all files underneath "production" sub-directory.
+  git submodule deinit production/sfbay
 
-Checkout master::
+or::
 
-  git checkout master
+  git submodule deinit --all
 
-Create a new branch off of master, this is where you will stage the files to then merge back into master::
+to remove all production data.
 
-  git checkout -b new-branch-with-changes-4ci
+Note that if you locally fetch the submodule then it will update the submodule pointer to the latest submodule commit.
+That will result in a git change.
 
-Do a file by file checkout of all differing files from production branch onto master::
+for example, the output of `git status` will be something like that::
 
-  cat diff-with-master.txt | xargs git checkout production-branch --
+  Changes not staged for commit:
+    (use "git add <file>..." to update what will be committed)
+    (use "git restore <file>..." to discard changes in working directory)
+	  modified:   production/sfbay (new commits)
 
-Note, if any of our diffs include the deletion of a file on your production branch, then you will need to remove (i.e. with "git remove" these before you do the above "checkout" step and you should also remove them from the diff-with-master.txt"). If you don't do this, you will see an error message ("did not match any file(s) known to git.") and the checkout command will not be completed.
+It is safe to either add this change with `git add` and commit it or drop it with `git reset`. It doesn't matter since we
+always fetch the latest commit in submodule.
 
-Finally, commit the files that were checked out of the production branch, push, and go create your pull request!
+Using old production data
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Old production data is still available at branches `production-gemini-develop`, `inm/merge-urbansim-with-detroit` etc.
+
+If for some reason you need to merge latest changes to these branches please note that there could be a conflict with the
+same directory name for example `production/sfbay`. In that case you will need to rename this directory in production branch
+to some other name before merging, commit this change and then merge the latest changes from develop.
+
+Adding new production scenario
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+First create a new repository for the data with beam-data- prefix.
+
+Then in the main repo type::
+
+  git submodule add -b develop git@github.com:LBNL-UCB-STI/beam-data-city.git production/city
+
+replacing `city` with a new scenario name, assuming that repo uses `develop` branch as default one.
 
 
 Automated Cloud Deployment
@@ -146,60 +177,168 @@ Automated Cloud Deployment
 
     This functionality is available for core BEAM development team with Amazon Web Services access privileges. Please contact Colin_ for access to capability.
 
+BEAM run on EC2
+~~~~~~~~~~~~~~~
+
 To run a BEAM simulation or experiment on amazon ec2, use following command with some optional parameters::
 
-  gradle deploy -P[beamConfigs | beamExperiments]=config-or-experiment-file
+  ./gradlew deploy -P[beamConfigs | beamExperiments]=config-or-experiment-file
 
 The command will start an ec2 instance based on the provided configurations and run all simulations in serial. At the end of each simulation/experiment, outputs are uploaded to a public Amazon S3 bucket_. To run each each simulation/experiment parallel on separate instances, set `beamBatch` to false. For customized runs, you can also use following parameters that can be specified from command line:
 
+* **propsFile**: to specify file with default values
+* **runName**: to specify instance name.
 * **beamBranch**: To specify the branch for simulation, current source branch will be used as default branch.
 * **beamCommit**: The commit SHA to run simulation. use `HEAD` if you want to run with latest commit, default is `HEAD`.
+* **dataBranch**: To specify the data branch (branch on production data repository) for simulation, 'develop' branch will be used as default data branch.
+* **deployMode**: to specify what type of deploy it will be: config | experiment | execute
 * **beamConfigs**: A comma `,` separated list of `beam.conf` files. It should be relative path under the project home. You can create branch level defaults by specifying the branch name with `.configs` suffix like `master.configs`. Branch level default will be used if `beamConfigs` is not present.
 * **beamExperiments**: A comma `,` separated list of `experiment.yml` files. It should be relative path under the project home.You can create branch level defaults same as configs by specifying the branch name with `.experiments` suffix like `master.experiments`. Branch level default will be used if `beamExperiments` is not present. `beamConfigs` has priority over this, in other words, if both are provided then `beamConfigs` will be used.
+* **executeClass** and **executeArgs**: to specify class and args to execute if `execute` was chosen as deploy mode
+* **maxRAM**: to specify MAXRAM environment variable for simulation.
+* **storageSize**: to specfy storage size of instance. May be from `64` to `256`.
 * **beamBatch**: Set to `false` in case you want to run as many instances as number of config/experiment files. Default is `true`.
+* **s3Backup**: to specify if copying results to s3 bucket is needed, default is `true`.
+* **instanceType**: to specify s2 instance type.
 * **region**: Use this parameter to select the AWS region for the run, all instances would be created in specified region. Default `region` is `us-east-2`.
 * **shutdownWait**: As simulation ends, ec2 instance would automatically terminate. In case you want to use the instance, please specify the wait in minutes, default wait is 30 min.
+* **shutdownBehaviour**: to specify shutdown behaviour after and of simulation. May be `stop` or `terminate`, default is `terminate`.
 
-If any of the above parameter is not specified at the command line, then default values are assumed for optional parameters. These default values are specified in gradle.properties_ file.
+There is a default file to specify parameters for task: gradle.deploy.properties_ and it is advised to use it (or custom) file to specify all default values for `deploy` task and not use gradle.properties_ file because latter used as a source of default values for all gradle tasks.
+
+The order which will be used to look for parameter values is follow:
+ #. command line arguments
+ #. gradle.properties_ file
+ #. gradle.deploy.properties_ file or custom file specified in `propsFile`
 
 To run a batch simulation, you can specify multiple configuration files separated by commas::
 
-  gradle deploy -PbeamConfigs=test/input/beamville/beam.conf,test/input/sf-light/sf-light.conf
+  ./gradlew deploy -PbeamConfigs=test/input/beamville/beam.conf,test/input/sf-light/sf-light.conf
 
 Similarly for experiment batch, you can specify comma-separated experiment files::
 
-  gradle deploy -PbeamExperiments=test/input/beamville/calibration/transport-cost/experiments.yml,test/input/sf-light/calibration/transport-cost/experiments.yml
+  ./gradlew deploy -PbeamExperiments=test/input/beamville/calibration/transport-cost/experiments.yml,test/input/sf-light/calibration/transport-cost/experiments.yml
 
 For demo and presentation material, please follow the link_ on google drive.
 
-AWS EC2 Start
-~~~~~~~~~~~~~
+BEAM run on NERSC
+~~~~~~~~~~~~~~~~~
 
-To maintain ec2 instances, there are some utility tasks that reduce operation cost tremendously. You can start already available instances using a simple `start` gradle task under aws module. You can specify one or more instance ids by a comma saturated list as `instanceIds` argument. Below is syntax to use the command::
+In order to run BEAM on NERSC one needs to get an `ssh key <https://docs.nersc.gov/connect/mfa/#sshproxy>`_ that allows you to ssh to NERSC systems without further authentication until the key expires (24 hours). You also need to specify your user name on NERSC in the following property: **nerscUser**, i.e::
 
-  cd aws
-  gradle start -PinstanceIds=<InstanceID1>[,<InstanceID2>]
+ ./gradlew deployToNersc -PnerscUser=dmitriio
+
+You need to define the deploy properties that are similar to the ones for AWS deploy. These are the properties that is used on NERSC:
+
+* **runName**: to specify instance name.
+* **beamBranch**: To specify the branch for simulation, current source branch will be used as default branch.
+* **beamCommit**: The commit SHA to run simulation. use `HEAD` if you want to run with latest commit, default is `HEAD`.
+* **dataBranch**: To specify the branch for production data, 'develop' branch will be used as default branch.
+* **beamConfigs**: The `beam.conf` file. It should be relative path under the project home.
+* **s3Backup**: to specify if copying results to s3 bucket is needed, default is `true`.
+* **region**: Use this parameter to select the AWS region for the run, all instances would be created in specified region. Default `region` is `us-east-2`.
+
+Your task is going to be added to the queue and when it starts/finishes you receive a notification on your git user email. It may take 1-24 hours (or even more) for the task to get started. It depends on the NERSC workload. In your user home directory on NERSC you can find the output file of your task that looks like `slurm-<job id>.out`. The BEAM output directory is resides at `$SCRATCH/beam_runs/`. Also the output is uploaded to s3 if `s3Backup` is set to true.
+
+
+PILATES run on EC2
+~~~~~~~~~~~~~~~~~~
+
+It is possible to start PILATES simulation on AWS instance from gradle task  ::
+
+  ./gradlew deployPilates [-Pparam1name=param1value [... -PparamNname=paramNvalue]]
+
+This command will start PILATES simulation on ec2 instance with specified parameters.
+
+* **propsFile**: to specify file with default values
+* **runName**: to specify instance name.
+* **startYear**: to specify start year of simulation.
+* **countOfYears**: to specify count of years.
+* **beamItLen**: to specify simulations year step.
+* **urbansimItLen**: to specify urbansim simulation length.
+* **inYearOutput**: to allow urbansim to write in year output, default is 'off'.
+* **beamConfig**: to specify BEAM config file for all runs during simulation.
+* **initialS3UrbansimInput**: to specify initial data for first urbansim run.
+* **initialS3UrbansimOutput**: to specify initial urbansim data for first BEAM run if it is not skipped.
+* **initialSkimPath**: to specify initial skim file for first urbansim run if first BEAM run is skipped. Setting this parameter to any value will lead to skipping first BEAM run.
+* **s3OutputBucket**: to specify s3 output bucket name, default is `//pilates-outputs`.
+* **s3OutputBasePath**: to specify s3 output path from bucket to output folder. Setting this parameter empty will lead to putting output folder in root of s3 output bucket. By default is empty.
+* **pilatesScenarioName**: name of output folder. Full name will contain this parameter value and datetime of start of run. By default is `pilates`.
+* **beamBranch**: to specify the branch for simulation, current source branch will be used as default branch.
+* **beamCommit**: the commit SHA to run simulation. use `HEAD` if you want to run with latest commit, default is `HEAD`.
+* **maxRAM**: to specify MAXRAM environment variable for simulation.
+* **shutdownWait**: to specify shutdown wait after end of simulation, default is `15`.
+* **shutdownBehaviour**: to specify shutdown behaviour after and of simulation. May be `stop` or `terminate`, default is `terminate`.
+* **storageSize**: to specfy storage size of instance. May be from `64` to `256`.
+* **region**: to specify region to deploy ec2 instance. May be different from s3 bucket instance.
+* **dataRegion**: to specify region of s3 buckets. All operations with s3 buckets will be use this region. By default equal to `region`.
+* **instanceType**: to specify s2 instance type.
+* **pilatesImageVersion**: to specify pilates image version, default is `latest`.
+* **pilatesImageName**: to specify full pilates image name, default is `beammodel/pilates`.
+
+There is a default file to specify parameters for task: gradle.deployPILATES.properties_ and it is advised to use it (or custom) file to specify all default values for `deployPilates` task and not use gradle.properties_ file because latter used as a source of default values for all gradle tasks.
+
+The order which will be used to look for parameter values is follow:
+ #. command line arguments
+ #. gradle.properties_ file
+ #. gradle.deployPILATES.properties_ file or custom file specified in `propsFile`
+
+If none of sources contains parameter, then parameter will be omitted. This will ends with output message: "`parameters wasn't specified: <omitted parameters list>`"
+
+Running this function will leads to:
+ #. creating new ec2 instance
+ #. pulling from github selected branch/commit
+ #. pulling from docker hub PILATES image
+ #. running PILATES image with specified parameters
+ #. writing output from every iteration to s3 bucket
+
+All run parameters will be stored in `run-params` file in root of PILATES output.
+
+Also during simulation for every BEAM run will be created a new config file with specified paths to output folder and to urbansim data.
+Those config files will be created near original config file (from `beamConfig` variable) with year added to the name.
+So it will be possible to rerun BEAM for selected year.
+
+
+AWS EC2 start stop and terminate
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To maintain ec2 instances, there are some utility tasks that reduce operation cost tremendously.
+You can start already available instances using a simple `startEC2` gradle task under aws module.
+You can specify one or more instance ids by a comma saturated list as `instanceIds` argument.
+Below is syntax to use the command::
+
+  ./gradlew startEC2 -PinstanceIds=<InstanceID1>[,<InstanceID2>]
 
 As a result of task, instance DNS would be printed on the console.
 
 
-AWS EC2 Stop
-~~~~~~~~~~~~
+Just like starting instance, you can also stop already running instances using a simple `stopEC2` gradle task.
+You can specify one or more instance ids by a comma saturated list as `instanceIds` argument.
+Below is syntax to use the command::
 
-Just like starting instance, you can also stop already running instances using a simple `stop` gradle task under aws module. You can specify one or more instance ids by a comma saturated list as `instanceIds` argument. Below is syntax to use the command::
+  ./gradlew stopEC2 -PinstanceIds=<InstanceID1>[,<InstanceID2>]
 
-  cd aws
-  gradle stop -PinstanceIds=<InstanceID1>[,<InstanceID2>]
+It is possible not just stop instance but terminate it using `terminateEC2` gradle task.
+Terminated instances are not available to start and will be completely removed along with all data they contain.
+You can specify one or more instance ids by a comma saturated list as `instanceIds` argument.
+Below is syntax to use the command::
+
+  ./gradlew terminateEC2 -PinstanceIds=<InstanceID1>[,<InstanceID2>]
 
 .. _Colin: mailto:colin.sheppard@lbl.gov
 .. _bucket: https://s3.us-east-2.amazonaws.com/beam-outputs/
 .. _gradle.properties: https://github.com/LBNL-UCB-STI/beam/blob/master/gradle.properties
+.. _gradle.deploy.properties: https://github.com/LBNL-UCB-STI/beam/blob/master/gradle.deploy.properties
+.. _gradle.deployPILATES.properties: https://github.com/LBNL-UCB-STI/beam/blob/master/gradle.deployPILATES.properties
 .. _link: https://goo.gl/Db37yM
+
 
 Performance Monitoring
 ^^^^^^^^^^^^^^^^^^^^^^
 
 Beam uses `Kamon`_ as a performance monitoring framework. It comes with a nice API to instrument your application code for metric recoding. Kamon also provide many different pingable recorders like Log Reporter, StatsD, InfluxDB etc. You can configure your desired recorder with project configurations under Kamon/metrics section. When you start the application it will measure the instrumented components and recorder would publish either to console or specified backend where you can monitor/analyse the metrics.
+
+If you would like to review basic JVM metrics then it is `already configured`_ so that you can use `jconsole`_.
 
 Beam Metrics Utility (`MetricsSupport`)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -218,7 +357,7 @@ Beam provides metric utility as part of performance monitoring framework using K
             calcRoute(request)
         }
 
-    In this snippet, first two arguments are same as of `countOccurrence`. Next, it takes the actual piece of code/expression for which you want to measure the execution time/latency. In the example above we are measuring the execution time to calculate a router in `R5RoutingWorker`, we named the entity as `"request-router-time"` and set metric level to `Metrics.RegularLevel`. When this method executes your entity recorder record the metrics and log with provided name.
+    In this snippet, first two arguments are same as of `countOccurrence`. Next, it takes the actual piece of code/expression for which you want to measure the execution time/latency. In the example above we are measuring the execution time to calculate a router in `RoutingWorker`, we named the entity as `"request-router-time"` and set metric level to `Metrics.RegularLevel`. When this method executes your entity recorder record the metrics and log with provided name.
 
 Beam Metrics Configuration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -329,6 +468,8 @@ Now at the bottom, under NetworkSettings, locate IP Address of your docker conta
 
 
 
+.. _already configured: http://logback.qos.ch/manual/jmxConfig.html
+.. _jconsole: https://docs.oracle.com/javase/8/docs/technotes/guides/management/jconsole.html
 .. _Kamon: http://kamon.io
 .. _StatsD: http://kamon.io/documentation/0.6.x/kamon-statsd/overview/
 .. _Graphite: http://graphite.wikidot.com/
@@ -459,6 +600,22 @@ If everything turned out well, the cloning process should not ask for the creden
    git checkout -b master upstream/master
    git pull
 
+Build BEAM docker image
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+To build Beam docker image run::
+
+    $ ./gradlew buildImage
+
+in the root of Beam project. If you want to tag the built image run::
+
+    $ ./gradlew tagImage
+
+Once you have the image you can run Beam in Docker. Here is an example how to run test/input/beamville/beam.conf scenario on Windows OS::
+
+   $ docker run -v c:/repos/beam/output:/app/output -e JAVA_OPTS='-Xmx12g' \
+      beammodel/beam:0.8.6 --config test/input/beamville/beam.conf
+
+Docker run command mounts host folder c:/repos/beam/output to be /app/output which allows to see the output of the Beam run. It also passes environment variable e JAVA_OPTS to the container in order to set maximum heap size for Java application.
 
 Scala tips
 ^^^^^^^^^^
@@ -468,7 +625,7 @@ Scala Collection
 Use ``mutable`` buffer instead of ``immutable var``:
 ****************************************************
 
-::
+.. code-block:: scala
 
    // Before
    var buffer = scala.collection.immutable.Vector.empty[Int]
@@ -482,16 +639,18 @@ Use ``mutable`` buffer instead of ``immutable var``:
    
 **Additionally note that, for the best performance, use mutable inside of methods, but return an immutable**
 
+.. code-block:: scala
+
    val mutableList = scala.collection.mutable.MutableList(1,2)
    mutableList += 3
-   mutableList.toList //returns scala.collection.immutable.List
-                      //or return mutableList but explicitly set the method return type to 
-                      //a common, assumed immutable one from scala.collection (more dangerous)
+   mutableList.toList // returns scala.collection.immutable.List
+                      // or return mutableList but explicitly set the method return type to
+                      // a common, assumed immutable one from scala.collection (more dangerous)
 
 Don’t create temporary collections, use `view`_:
 ************************************************
 
-::
+.. code-block:: scala
 
    val seq: Seq[Int] = Seq(1, 2, 3, 4, 5)
 
@@ -504,7 +663,7 @@ Don’t create temporary collections, use `view`_:
 Don’t emulate ``collectFirst`` and ``collect``:
 ***********************************************
 
-::
+.. code-block:: scala
 
    // collectFirst
    // Get first number >= 4
@@ -531,20 +690,20 @@ Don’t emulate ``collectFirst`` and ``collect``:
 Prefer ``nonEmpty`` over ``size > 0``:
 **************************************
 
-::
+.. code-block:: scala
  
-  //Before
+  // Before
   (1 to x).size > 0
   
-  //After
+  // After
   (1 to x).nonEmpty
   
-  //nonEmpty shortcircuits as soon as the first element is encountered
+  // nonEmpty shortcircuits as soon as the first element is encountered
 
 Prefer not to use ``_1, _2,...`` for ``Tuple`` to improve readability:
 **********************************************************************
 
-::
+.. code-block:: scala
 
    // Get odd elements of sequence s
    val predicate: Int => Boolean = (idx: Int)  => { idx % 2 == 1 }
@@ -581,7 +740,7 @@ When you log, prefer to use API which are lazy. If you use
 Akka, you should not use `string interpolation`_, but use method with
 replacement arguments:
 
-::
+.. code-block:: scala
 
    // Before
    log.debug(s"Hello: $name")
