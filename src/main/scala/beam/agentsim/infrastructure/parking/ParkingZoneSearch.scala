@@ -9,6 +9,7 @@ import beam.agentsim.infrastructure.charging._
 import beam.agentsim.infrastructure.taz.TAZ
 import beam.router.BeamRouter.Location
 import beam.utils.MathUtils
+import com.typesafe.scalalogging.LazyLogging
 import com.vividsolutions.jts.geom.Envelope
 import org.matsim.api.core.v01.{Coord, Id}
 import org.matsim.core.utils.collections.QuadTree
@@ -287,7 +288,7 @@ object ParkingZoneSearch {
     }
   }
 
-  class ParkingZoneCollection[GEO](parkingZones: Seq[ParkingZone[GEO]]) {
+  class ParkingZoneCollection[GEO](parkingZones: Seq[ParkingZone[GEO]]) extends LazyLogging {
 
     private val publicFreeZones: Map[ParkingZoneInfo, mutable.Set[ParkingZone[GEO]]] =
       parkingZones.view
@@ -316,7 +317,12 @@ object ParkingZoneSearch {
           val numToTake = Math.max(MathUtils.doubleToInt(zones.size * fraction), min)
           MathUtils.selectRandomElements(zones, numToTake, rnd)
         } ++
-        reservedFreeZones.getOrElse(reservedFor, Nil)
+        reservedFreeZones.getOrElse(
+          reservedFor, {
+            logger.error(s"ParkingZoneCollection. reservedFreeZones ${reservedFor.toString}")
+            Nil
+          }
+        )
       ).toIndexedSeq
     }
 

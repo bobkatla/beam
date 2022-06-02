@@ -670,8 +670,8 @@ object HouseholdActor {
     ): BeamVehicle = {
       val reservedFor =
         VehicleManager.createOrGetReservedFor(household.getId.toString, VehicleManager.TypeEnum.Household)
-      logger
-        .info(s"HouseholdActor: turning householdId ${household.getId.toString} to reservedFor ${reservedFor.toString}")
+//      logger
+//        .info(s"HouseholdActor: turning householdId ${household.getId.toString} to reservedFor ${reservedFor.toString}")
       val vehicle = new BeamVehicle(
         Id.createVehicleId(personId.toString + "-emergency-" + vehicleIndex),
         new Powertrain(vehicleType.primaryFuelConsumptionInJoulePerMeter),

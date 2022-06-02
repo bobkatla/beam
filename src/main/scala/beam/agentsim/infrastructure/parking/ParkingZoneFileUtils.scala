@@ -535,9 +535,11 @@ object ParkingZoneFileUtils extends ExponentialLazyLogging {
   ): ReservedFor = {
     VehicleManager.createOrGetReservedFor(reservedForString, beamConfigMaybe) match {
       case Some(reservedFor) =>
-        logger.info(s"ParkingZoneFileUtils. This is reserved for from parking file: ${reservedFor.toString}")
+        logger.info(s"ParkingZoneFileUtils. reservedFor: ${reservedFor.toString}")
         reservedFor
-      case None if defaultReservedFor.nonEmpty => defaultReservedFor.get
+      case None if defaultReservedFor.nonEmpty =>
+        logger.info(s"ParkingZoneFileUtils. defaultReservedFor: ${reservedForString}")
+        defaultReservedFor.get
       case _ =>
         logger.warn(
           s"The following reservedFor value $reservedForString in parking file " +
