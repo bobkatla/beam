@@ -199,13 +199,13 @@ class ChargingFunctions(
 
     val rangeAnxietyFactor: Double =
       inquiry.remainingTripData
-        .map {
-          _.rangeAnxiety(withAddedFuelInJoules = addedEnergy)
-        }
+        .map(_.rangeAnxiety(withAddedFuelInJoules = addedEnergy))
         .getOrElse(0.0) // default no anxiety if no remaining trip data provided
 
+    // overnight charging is either at the beginning of the simulated day or end of the simulated day
+    val overnightParkingCheck = inquiry.remainingTripData.forall(_.remainingTourDistance == 0)
     val overnightParkingPrefersChargingFactor: Double =
-      if (inquiry.destinationUtm.time == 0) 1 - math.min(1.0, math.max(0.0, stateOfCharge)) else 0.0
+      if (overnightParkingCheck) 1 - math.min(1.0, math.max(0.0, stateOfCharge)) else 0.0
 
     super[ParkingFunctions].setupMNLParameters(parkingAlternative, inquiry) ++ Map(
       ParkingMNL.Parameters.EnrouteDetourCost               -> enrouteFactor,
