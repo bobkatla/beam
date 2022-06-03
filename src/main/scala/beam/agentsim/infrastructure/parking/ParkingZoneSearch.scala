@@ -70,14 +70,14 @@ object ParkingZoneSearch {
     * @param zoneQuadTree [[ParkingZone]]s are associated with a TAZ, which are themselves stored in this Quad Tree
     * @param random random number generator
     */
-  case class ParkingZoneSearchParams[GEO](
+  case class ParkingZoneSearchParams(
     destinationUTM: Location,
     parkingDuration: Double,
     searchMode: ParkingSearchMode,
     parkingMNLConfig: ParkingMNL.ParkingMNLConfig,
-    zoneCollections: Map[Id[GEO], ParkingZoneCollection[GEO]],
-    parkingZones: Map[Id[ParkingZoneId], ParkingZone[GEO]],
-    zoneQuadTree: QuadTree[GEO],
+    zoneCollections: Map[Id[TAZ], ParkingZoneCollection],
+    parkingZones: Map[Id[ParkingZoneId], ParkingZone],
+    zoneQuadTree: QuadTree[TAZ],
     random: Random,
     originUTM: Option[Location],
     reservedFor: ReservedFor
@@ -90,9 +90,9 @@ object ParkingZoneSearch {
     * @param parkingZone the [[ParkingZone]] associated with this stall
     * @param parkingZoneIdsSeen list of [[ParkingZone]] ids that were seen in this search
     */
-  case class ParkingZoneSearchResult[GEO](
+  case class ParkingZoneSearchResult(
     parkingStall: ParkingStall,
-    parkingZone: ParkingZone[GEO],
+    parkingZone: ParkingZone,
     parkingZoneIdsSeen: List[Id[ParkingZoneId]] = List.empty,
     parkingZonesSampled: List[(Id[ParkingZoneId], Option[ChargingPointType], ParkingType, Double)] = List.empty,
     iterations: Int = 1
@@ -108,10 +108,10 @@ object ParkingZoneSearch {
     * @param coord location sampled for this alternative
     * @param costInDollars expected cost for using this alternative
     */
-  case class ParkingAlternative[GEO](
-    geo: GEO,
+  case class ParkingAlternative(
+    geo: TAZ,
     parkingType: ParkingType,
-    parkingZone: ParkingZone[GEO],
+    parkingZone: ParkingZone,
     coord: Coord,
     costInDollars: Double
   )
@@ -122,8 +122,8 @@ object ParkingZoneSearch {
     * @param parkingAlternative ParkingAlternative
     * @param utilityParameters Map[ParkingMNL.Parameters, Double]
     */
-  private[ParkingZoneSearch] case class ParkingSearchAlternative[GEO](
-    parkingAlternative: ParkingAlternative[GEO],
+  private[ParkingZoneSearch] case class ParkingSearchAlternative(
+    parkingAlternative: ParkingAlternative,
     utilityParameters: Map[ParkingMNL.Parameters, Double]
   )
 
@@ -137,32 +137,30 @@ object ParkingZoneSearch {
     * @param parkingZoneMNLParamsFunction a function that generates MNL parameters for a [[ParkingAlternative]]
     * @return if found, a suitable [[ParkingAlternative]]
     */
-  def incrementalParkingZoneSearch[GEO: GeoLevel](
+  def incrementalParkingZoneSearch(
     config: ParkingZoneSearchConfiguration,
-    params: ParkingZoneSearchParams[GEO],
-    parkingZoneFilterFunction: ParkingZone[GEO] => Boolean,
-    parkingZoneLocSamplingFunction: ParkingZone[GEO] => Coord,
-    parkingZoneMNLParamsFunction: ParkingAlternative[GEO] => Map[ParkingMNL.Parameters, Double],
-    geoToTAZ: GEO => TAZ
-  ): Option[ParkingZoneSearchResult[GEO]] = {
-    import GeoLevel.ops._
+    params: ParkingZoneSearchParams,
+    parkingZoneFilterFunction: ParkingZone => Boolean,
+    parkingZoneLocSamplingFunction: ParkingZone => Coord,
+    parkingZoneMNLParamsFunction: ParkingAlternative => Map[ParkingMNL.Parameters, Double]
+  ): Option[ParkingZoneSearchResult] = {
 
     // find zones
     @tailrec
     def _search(
-      searchMode: SearchMode[GEO],
+      searchMode: SearchMode,
       parkingZoneIdsSeen: List[Id[ParkingZoneId]] = List.empty,
       parkingZoneIdsSampled: List[(Id[ParkingZoneId], Option[ChargingPointType], ParkingType, Double)] = List.empty,
       iterations: Int = 1
-    ): Option[ParkingZoneSearchResult[GEO]] = {
+    ): Option[ParkingZoneSearchResult] = {
       // a lookup of the (next) search ring for TAZs
       searchMode.lookupParkingZonesInNextSearchAreaUnlessThresholdReached(params.zoneQuadTree) match {
         case Some(theseZones) =>
           // ParkingZones as as ParkingAlternatives
-          val alternatives: List[ParkingSearchAlternative[GEO]] = {
+          val alternatives: List[ParkingSearchAlternative] = {
             for {
               zone           <- theseZones
-              zoneCollection <- params.zoneCollections.get(zone.getId).toSeq
+              zoneCollection <- params.zoneCollections.get(zone.tazId).toSeq
               parkingZone <- zoneCollection.getFreeZones(
                 config.fractionOfSameTypeZones,
                 config.minNumberOfSameTypeZones,
@@ -189,7 +187,7 @@ object ParkingZoneSearch {
                       config.estimatedMinParkingDurationInSeconds
                     )
                 }
-              val parkingAlternative: ParkingAlternative[GEO] =
+              val parkingAlternative: ParkingAlternative =
                 ParkingAlternative(zone, parkingZone.parkingType, parkingZone, stallLocation, stallPriceInDollars)
               val parkingAlternativeUtility: Map[ParkingMNL.Parameters, Double] =
                 parkingZoneMNLParamsFunction(parkingAlternative)
@@ -204,12 +202,12 @@ object ParkingZoneSearch {
             _search(searchMode, parkingZoneIdsSeen, parkingZoneIdsSampled, iterations + 1)
           } else {
             // remove any invalid parking alternatives
-            val alternativesToSample: Map[ParkingAlternative[GEO], Map[ParkingMNL.Parameters, Double]] =
+            val alternativesToSample: Map[ParkingAlternative, Map[ParkingMNL.Parameters, Double]] =
               alternatives.map { a =>
                 a.parkingAlternative -> a.utilityParameters
               }.toMap
 
-            val mnl: MultinomialLogit[ParkingAlternative[GEO], ParkingMNL.Parameters] =
+            val mnl: MultinomialLogit[ParkingAlternative, ParkingMNL.Parameters] =
               MultinomialLogit(
                 Map.empty,
                 params.parkingMNLConfig
@@ -220,8 +218,7 @@ object ParkingZoneSearch {
 
               // create a new stall instance. you win!
               val parkingStall = ParkingStall(
-                taz.getId,
-                geoToTAZ(taz).getId,
+                taz.tazId,
                 parkingZone.parkingZoneId,
                 coordinate,
                 costInDollars,
@@ -278,7 +275,7 @@ object ParkingZoneSearch {
 
   object ParkingZoneInfo {
 
-    def describeParkingZone(zone: ParkingZone[_]): ParkingZoneInfo = {
+    def describeParkingZone(zone: ParkingZone): ParkingZoneInfo = {
       new ParkingZoneInfo(
         zone.parkingType,
         zone.chargingPointType,
@@ -288,9 +285,9 @@ object ParkingZoneSearch {
     }
   }
 
-  class ParkingZoneCollection[GEO](parkingZones: Seq[ParkingZone[GEO]]) extends LazyLogging {
+  class ParkingZoneCollection(val parkingZones: Seq[ParkingZone]) extends LazyLogging {
 
-    private val publicFreeZones: Map[ParkingZoneInfo, mutable.Set[ParkingZone[GEO]]] =
+    private val publicFreeZones: Map[ParkingZoneInfo, mutable.Set[ParkingZone]] =
       parkingZones.view
         .filter(_.reservedFor.managerType == TypeEnum.Default)
         .groupBy(ParkingZoneInfo.describeParkingZone)
@@ -298,7 +295,7 @@ object ParkingZoneSearch {
         .view
         .force
 
-    private val reservedFreeZones: Map[ReservedFor, mutable.Set[ParkingZone[GEO]]] =
+    private val reservedFreeZones: Map[ReservedFor, mutable.Set[ParkingZone]] =
       parkingZones.view
         .filter(_.reservedFor.managerType != TypeEnum.Default)
         .groupBy(_.reservedFor)
@@ -311,7 +308,7 @@ object ParkingZoneSearch {
       min: Int,
       reservedFor: ReservedFor,
       rnd: Random
-    ): IndexedSeq[ParkingZone[GEO]] = {
+    ): IndexedSeq[ParkingZone] = {
       (
         publicFreeZones.view.flatMap { case (_, zones) =>
           val numToTake = Math.max(MathUtils.doubleToInt(zones.size * fraction), min)
@@ -326,17 +323,17 @@ object ParkingZoneSearch {
       ).toIndexedSeq
     }
 
-    def claimZone(parkingZone: ParkingZone[GEO]): Unit =
+    def claimZone(parkingZone: ParkingZone): Unit =
       if (parkingZone.stallsAvailable <= 0) {
         for (set <- getCorrespondingZoneSet(parkingZone)) set -= parkingZone
       }
 
-    def releaseZone(parkingZone: ParkingZone[GEO]): Unit =
+    def releaseZone(parkingZone: ParkingZone): Unit =
       if (parkingZone.stallsAvailable > 0) {
         for (set <- getCorrespondingZoneSet(parkingZone)) set += parkingZone
       }
 
-    private def getCorrespondingZoneSet(parkingZone: ParkingZone[GEO]): Option[mutable.Set[ParkingZone[GEO]]] =
+    private def getCorrespondingZoneSet(parkingZone: ParkingZone): Option[mutable.Set[ParkingZone]] =
       if (parkingZone.reservedFor.managerType == TypeEnum.Default) {
         publicFreeZones.get(ParkingZoneInfo.describeParkingZone(parkingZone))
       } else {
@@ -344,28 +341,28 @@ object ParkingZoneSearch {
       }
   }
 
-  def createZoneCollections[GEO](zones: Seq[ParkingZone[GEO]]): Map[Id[GEO], ParkingZoneCollection[GEO]] = {
-    zones.groupBy(_.geoId).mapValues(new ParkingZoneCollection(_)).view.force
+  def createZoneCollections(zones: Seq[ParkingZone]): Map[Id[TAZ], ParkingZoneCollection] = {
+    zones.groupBy(_.tazId).mapValues(new ParkingZoneCollection(_)).view.force
   }
 
-  trait SearchMode[GEO] {
-    def lookupParkingZonesInNextSearchAreaUnlessThresholdReached(zoneQuadTree: QuadTree[GEO]): Option[List[GEO]]
+  trait SearchMode {
+    def lookupParkingZonesInNextSearchAreaUnlessThresholdReached(zoneQuadTree: QuadTree[TAZ]): Option[List[TAZ]]
   }
 
   object SearchMode {
 
-    case class DestinationSearch[GEO](
+    case class DestinationSearch(
       destinationUTM: Location,
       searchStartRadius: Double,
       searchMaxRadius: Double,
       expansionFactor: Double
-    ) extends SearchMode[GEO] {
+    ) extends SearchMode {
       private var thisInnerRadius: Double = 0.0
       private var thisOuterRadius: Double = searchStartRadius
 
       override def lookupParkingZonesInNextSearchAreaUnlessThresholdReached(
-        zoneQuadTree: QuadTree[GEO]
-      ): Option[List[GEO]] = {
+        zoneQuadTree: QuadTree[TAZ]
+      ): Option[List[TAZ]] = {
         if (thisInnerRadius > searchMaxRadius) None
         else {
           val result = zoneQuadTree
@@ -379,20 +376,20 @@ object ParkingZoneSearch {
       }
     }
 
-    case class EnrouteSearch[GEO](
+    case class EnrouteSearch(
       originUTM: Location,
       destinationUTM: Location,
       searchMaxDistanceToFociInPercent: Double,
       expansionFactor: Double,
       distanceFunction: (Coord, Coord) => Double
-    ) extends SearchMode[GEO] {
+    ) extends SearchMode {
       private val startDistance: Double = distanceFunction(originUTM, destinationUTM) * 1.01
       private val maxDistance: Double = startDistance * searchMaxDistanceToFociInPercent
       private var thisInnerDistance: Double = startDistance
 
       override def lookupParkingZonesInNextSearchAreaUnlessThresholdReached(
-        zoneQuadTree: QuadTree[GEO]
-      ): Option[List[GEO]] = {
+        zoneQuadTree: QuadTree[TAZ]
+      ): Option[List[TAZ]] = {
         if (thisInnerDistance >= maxDistance) None
         else {
           val result = zoneQuadTree
@@ -405,10 +402,10 @@ object ParkingZoneSearch {
       }
     }
 
-    def getInstance[GEO](
+    def getInstance(
       config: ParkingZoneSearchConfiguration,
-      params: ParkingZoneSearchParams[GEO]
-    ): SearchMode[GEO] = {
+      params: ParkingZoneSearchParams
+    ): SearchMode = {
       params.searchMode match {
         case ParkingSearchMode.EnRouteCharging =>
           EnrouteSearch(
