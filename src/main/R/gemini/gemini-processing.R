@@ -930,4 +930,19 @@ mnl_param[,.(.N,mean(costInDollars)),by=.(chargingPointType)]
 
 events7[type=="RefuelSessionEvent"][,.(sumFuel=sum(fuel)),by=.(actType)]
 
+## TEST
+
+
+events.test <- readCsv(pp(workDir, "/test/0.events.csv.gz"))
+ref.test <- events.test[type=="RefuelSessionEvent"]
+charging_share <- ref.test[,.(fuel=sum(fuel)),by=.(chargingPointType)][,fuel_share:=fuel/sum(fuel)]
+vehicle.test <- readCsv(pp(workDir, "/test/householdVehicles.csv"))
+park.test <- events.test[type=="ParkingEvent"]
+vehicle.test$vehicleId <- as.character(vehicle.test$vehicleId)
+park.test.2 <- park.test[vehicle.test, on=c(vehicle="vehicleId")]
+
+ev <- park.test.2[startsWith(i.vehicleType,"ev-")]
+phev <- park.test.2[startsWith(i.vehicleType,"phev-")]
+
+
 

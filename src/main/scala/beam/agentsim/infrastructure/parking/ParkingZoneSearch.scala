@@ -295,10 +295,10 @@ object ParkingZoneSearch {
         .view
         .force
 
-    private val reservedFreeZones: Map[ReservedFor, mutable.Set[ParkingZone]] =
+    private val reservedFreeZones: Map[String, mutable.Set[ParkingZone]] =
       parkingZones.view
         .filter(_.reservedFor.managerType != TypeEnum.Default)
-        .groupBy(_.reservedFor)
+        .groupBy(_.reservedFor.toString)
         .mapValues(zones => mutable.Set(zones: _*))
         .view
         .force
@@ -315,7 +315,7 @@ object ParkingZoneSearch {
           MathUtils.selectRandomElements(zones, numToTake, rnd)
         } ++
         reservedFreeZones.getOrElse(
-          reservedFor, {
+          reservedFor.toString, {
             logger.error(s"ParkingZoneCollection. reservedFreeZones ${reservedFor.toString}")
             Nil
           }
@@ -337,7 +337,7 @@ object ParkingZoneSearch {
       if (parkingZone.reservedFor.managerType == TypeEnum.Default) {
         publicFreeZones.get(ParkingZoneInfo.describeParkingZone(parkingZone))
       } else {
-        reservedFreeZones.get(parkingZone.reservedFor)
+        reservedFreeZones.get(parkingZone.reservedFor.toString)
       }
   }
 
