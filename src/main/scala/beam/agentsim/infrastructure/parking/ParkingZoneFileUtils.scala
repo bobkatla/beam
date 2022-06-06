@@ -290,10 +290,11 @@ object ParkingZoneFileUtils extends ExponentialLazyLogging {
           parkingStallCountScalingFactor,
           parkingCostScalingFactor
         ) match {
-          case None =>
-            accumulator.countFailedRow
-          case Some(row: ParkingLoadingDataRow) =>
+          case Some(row: ParkingLoadingDataRow) if row.parkingZone.stallsAvailable > 0 =>
+            // After sampling down parking certain parking zone became unavailable. We keep only available ones.
             addStallToSearch(row, accumulator)
+          case _ =>
+            accumulator.countFailedRow
         }
         _read(updatedAccumulator)
       } else {
@@ -342,10 +343,11 @@ object ParkingZoneFileUtils extends ExponentialLazyLogging {
             parkingStallCountScalingFactor,
             parkingCostScalingFactor
           ) match {
-            case None =>
-              accumulator.countFailedRow
-            case Some(row: ParkingLoadingDataRow) =>
+            case Some(row: ParkingLoadingDataRow) if row.parkingZone.stallsAvailable > 0 =>
+              // After sampling down parking certain parking zone became unavailable. We keep only available ones.
               addStallToSearch(row, accumulator)
+            case _ =>
+              accumulator.countFailedRow
           }
         } match {
           case Success(updatedAccumulator) =>
