@@ -150,7 +150,7 @@ class UrbanSimScenarioLoader(
     realDistribution.reseedRandomGenerator(beamScenario.beamConfig.matsim.modules.global.randomSeed)
 
     val bikeVehicleType = beamScenario.vehicleTypes.values
-      .filter(_.isSharedVehicle)
+      .filterNot(_.isSharedVehicle)
       .find(_.vehicleCategory == VehicleCategory.Bike)
       .getOrElse(throw new RuntimeException("Bike not found in vehicle types."))
 
