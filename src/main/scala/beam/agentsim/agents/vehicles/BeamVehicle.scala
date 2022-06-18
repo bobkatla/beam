@@ -405,7 +405,6 @@ class BeamVehicle(
     StreetVehicle(id, beamVehicleType.id, spaceTime, mode, asDriver = true, needsToCalculateCost = needsToCalculateCost)
   }
 
-  def isSharedVehicle: Boolean = beamVehicleType.id.toString.startsWith("sharedVehicle")
 
   def isCAV: Boolean = beamVehicleType.automationLevel >= 4
 
