@@ -63,8 +63,12 @@ runcmd:
   -    echo "-------------------checkout $bn----------------------"
   -    sudo GIT_LFS_SKIP_SMUDGE=1 git checkout $bn
   -    sudo git reset --hard origin/$bn
-  -    sudo git pull
-  -    sudo git lfs pull
+  -    for submodule in $SUBMODULES
+  -      do
+  -        sudo git submodule update --init --remote $submodule
+  -        sudo git pull
+  -        sudo git lfs pull
+  -      done
   -  done
   - sudo chown -R ubuntu:ubuntu /home/ubuntu/git/beam
   - echo "gradlew assemble ..."
@@ -72,7 +76,7 @@ runcmd:
   - ./gradlew clean
   - echo "preparing for python analysis"
   - 'echo resetting git to base: "$(date)"'
-  - sudo git reset --hard 
+  - sudo git reset --hard
   - 'echo fetching the latest: "$(date)"'
   - sudo git fetch
   - 'echo current git status: "$(date)"'
@@ -136,8 +140,9 @@ def lambda_handler(event, context):
     shutdown_wait = "10"
     runName = 'update-beam-dependencies'
     branches = os.environ['BRANCHES']
+    submodules = os.environ['SUBMODULES']
 
-    script = initscript.replace('$BRANCH', branches).replace('$SHUTDOWN_WAIT', shutdown_wait)
+    script = initscript.replace('$BRANCH', branches).replace('$SHUTDOWN_WAIT', shutdown_wait).replace('$SUBMODULES', submodules)
 
     init_ec2(region)
     instance_id = deploy(script, instance_type, region.replace("-", "_")+'_', shutdown_behaviour, runName, en_vars)

@@ -46,9 +46,8 @@ public class PhyssimCalcLinkStatsTest {
         EventsManager eventsManager = EventsUtils.createEventsManager();
         eventsManager.addHandler(travelTimeCalculator);
 
-        BeamConfig beamConfig = BeamConfig.apply(TestConfigUtils.testConfig("beam.sim.test/input/equil-square/equil-0.001k.conf").resolve().withValue("beam.physsim.quick_fix_minCarSpeedInMetersPerSecond", ConfigValueFactory.fromAnyRef(0.0)));
-        physsimCalcLinkStats = new PhyssimCalcLinkStats(network, null,  beamConfig, defaultTravelTimeCalculator, new BeamConfigChangesObservable(beamConfig, Option.empty()) );
-
+        BeamConfig beamConfig = BeamConfig.apply(TestConfigUtils.testConfig("test/input/equil-square/equil-0.001k.conf").resolve().withValue("beam.physsim.quick_fix_minCarSpeedInMetersPerSecond", ConfigValueFactory.fromAnyRef(0.0)));
+        physsimCalcLinkStats = new PhyssimCalcLinkStats(network, null,  beamConfig, defaultTravelTimeCalculator, new BeamConfigChangesObservable(beamConfig, Option.empty()), null);
         //physsimCalcLinkStats = new PhyssimCalcLinkStats(network, null, null);
 
         physsimCalcLinkStats.notifyIterationStarts(eventsManager, defaultTravelTimeCalculator);
