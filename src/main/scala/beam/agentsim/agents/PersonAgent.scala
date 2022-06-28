@@ -1401,21 +1401,7 @@ class PersonAgent(
             generateSkimData(tick, uncompletedTrip, failedTrip = true, currentActivityIndex, nextActivity(data))
           )
           val correctedTrip = correctTripEndTime(data.currentTrip.get, tick, body.id, body.beamVehicleType.id)
-          val generalizedTime =
-            modeChoiceCalculator.getGeneralizedTimeOfTrip(
-              correctedTrip,
-              Some(attributes),
-              nextActivity(data),
-              Some(currentActivity(data))
-            )
-          val generalizedCost = modeChoiceCalculator.getNonTimeCost(correctedTrip) + attributes
-            .getVOT(generalizedTime)
-          // Correct the trip to deal with ride hail / disruptions and then register to skimmer
-          val maybePayloadWeightInKg = getPayloadWeightFromLeg(currentActivityIndex)
-          generateSkimData(tick, data.currentTrip.get, failedTrip = false, currentActivityIndex, nextActivity(data))
-
           resetFuelConsumed()
-
           val activityStartEvent = new ActivityStartEvent(
             tick,
             id,

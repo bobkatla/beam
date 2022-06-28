@@ -107,7 +107,6 @@ case class AttributesOfIndividual(
             embodiedBeamLeg.isPooledTrip
           )
         )
-//<<<<<<< HEAD
       case BUS | SUBWAY | RAIL | TRAM | FERRY | FUNICULAR | CABLE_CAR | GONDOLA | TRANSIT =>
         val uniqueModes = embodiedBeamTrip.beamLegs.map(_.mode).toSet
         val modeMultiplier = getModeVotMultiplier(Option(embodiedBeamLeg.beamLeg.mode), modeChoiceModel)
@@ -131,7 +130,7 @@ case class AttributesOfIndividual(
         }
 
       case BIKE =>
-        val situation = getSituationForVOT(destinationActivity, originActivity)
+        val situation = getSituationForVOT(originActivity, destinationActivity)
         getModeVotMultiplier(Option(embodiedBeamLeg.beamLeg.mode), modeChoiceModel, Some(situation)) *
         embodiedBeamLeg.beamLeg.duration / 3600
       case _ =>
@@ -145,10 +144,10 @@ case class AttributesOfIndividual(
   }
 
   private def getSituationForVOT(
-    destinationActivity: Option[Activity],
-    originActivity: Option[Activity]
+    originActivity: Option[Activity],
+    destinationActivity: Option[Activity]
   ): Set[SituationMultiplier] = {
-    (destinationActivity, originActivity, age) match {
+    (originActivity, destinationActivity, age) match {
       case (Some(origin), Some(destination), Some(travelerAge)) =>
         val ageBin =
           if (travelerAge > 50) { ageGT50 }
