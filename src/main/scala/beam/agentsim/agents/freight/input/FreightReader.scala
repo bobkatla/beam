@@ -58,6 +58,7 @@ trait FreightReader {
     val allToursPlanElements = tours.flatMap { tour =>
       val tourInitialActivity =
         createFreightActivity("Warehouse", carrier.warehouseLocationUTM, tour.departureTimeInSec, None)
+
       val firstLeg: Leg = createFreightLeg(tour.departureTimeInSec)
 
       val plans: IndexedSeq[PayloadPlan] = plansPerTour.get(tour.tourId) match {
@@ -84,7 +85,9 @@ trait FreightReader {
       elements
     }
 
+
     val finalActivity = createFreightActivity("Warehouse", carrier.warehouseLocationUTM, -1, None)
+
     val allPlanElements: IndexedSeq[PlanElement] = allToursPlanElements :+ finalActivity
 
     val currentPlan = PopulationUtils.createPlan(person)
@@ -227,4 +230,5 @@ object FreightReader {
       beamServices.beamScenario.tazTreeMap,
       None
     )
+
 }

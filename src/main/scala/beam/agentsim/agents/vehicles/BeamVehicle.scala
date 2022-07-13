@@ -405,6 +405,10 @@ class BeamVehicle(
     StreetVehicle(id, beamVehicleType.id, spaceTime, mode, asDriver = true, needsToCalculateCost = needsToCalculateCost)
   }
 
+//<<<<<<< HEAD
+//
+//=======
+//>>>>>>> origin/Xuan/Bike-Hourly-Adjustment-Parameter-Based-on-new-develop
   def isCAV: Boolean = beamVehicleType.automationLevel >= 4
 
   def isBEV: Boolean =

@@ -150,6 +150,53 @@ class ParkingZoneFileUtilsSpec extends AnyWordSpec with Matchers {
         }
       }
     }
+//<<<<<<< HEAD
+//    "creates zone search tree" should {
+//      "produce correct tree" in new PositiveTestData {
+//        val ParkingZoneFileUtils.ParkingLoadingAccumulator(zones, lookupTree, _, _) =
+//          ParkingZoneFileUtils.fromIterator[Link](linkLevelData, None, None)
+//        val tree: ZoneSearchTree[Link] = ParkingZoneFileUtils.createZoneSearchTree(zones.values.toSeq)
+//        tree should equal(lookupTree)
+//      }
+//      "produce correct tree for bigger data" in new PositiveTestData {
+//        val (zones, lookupTree) =
+//          ParkingZoneFileUtils
+//            .fromFile[Link](
+//              "beam.sim.test/input/sf-light/link-parking.csv.gz",
+//              new Random(42),
+//              None,
+//              None,
+//              0.13
+//            )
+//        val tree: ZoneSearchTree[Link] = ParkingZoneFileUtils.createZoneSearchTree(zones.values.toSeq)
+//        tree should equal(lookupTree)
+//      }
+//    }
+//
+//    "creates a zone search tree" should {
+//      "produce the right result" in {
+//        val (parkingZones, _) =
+//          ParkingZoneFileUtils
+//            .fromFile[Link](
+//              "beam.sim.test/beam.sim.test-resources/beam/agentsim/infrastructure/taz-parking-similar-zones.csv",
+//              new Random(777934L),
+//              None,
+//              None
+//            )
+//        parkingZones should have size 2990
+//        val collapsed = HierarchicalParkingManager.collapse(parkingZones)
+//        val collapsedZones205 = collapsed.filter(_._2.geoId.toString == "205")
+//        collapsedZones205 should have size 11
+//        val zoneSearchTree = ParkingZoneFileUtils.createZoneSearchTree(collapsed.values.toSeq)
+//        val subTree = zoneSearchTree(Id.create("205", classOf[Link]))
+//        subTree.values.map(_.length).sum should be(11)
+//        subTree(Public) should have length 4
+//        subTree(Workplace) should have length 3
+//        subTree(Residential) should have length 4
+//      }
+//    }
+//=======
+//>>>>>>> develop
 
     "Time restriction parser" when {
       "parses time restriction" should {

@@ -221,8 +221,13 @@ case class AttributesOfIndividual(
     linkID: Int,
     travelTime: Double,
     beamServices: BeamServices
+//<<<<<<< HEAD
+//  ): (congestionLevel, roadwayType) = {
+//    // beam.sim.Note: cutoffs for congested (2/3 free flow speed) and highway (ff speed > 20 m/s) are arbitrary and could be inputs
+//=======
   ): (CongestionLevel, RoadwayType) = {
     // Note: cutoffs for congested (2/3 free flow speed) and highway (ff speed > 20 m/s) are arbitrary and could be inputs
+//>>>>>>> origin/Xuan/Bike-Hourly-Adjustment-Parameter-Based-on-new-develop
     val currentLink = beamServices.networkHelper.getLink(linkID).get
     val freeSpeed: Double = currentLink.getFreespeed()
     val currentSpeed: Double = if (travelTime == 0) { freeSpeed }

@@ -164,10 +164,10 @@ class ParkingFunctions(
           case _ =>
             // didn't find any stalls, so, as a last resort, create a very expensive stall
             val boxAroundRequest = new Envelope(
-              inquiry.destinationUtm.loc.getX + 2000,
-              inquiry.destinationUtm.loc.getX - 2000,
-              inquiry.destinationUtm.loc.getY + 2000,
-              inquiry.destinationUtm.loc.getY - 2000
+              inquiry.destinationUtm.loc.getX + 10,
+              inquiry.destinationUtm.loc.getX - 10,
+              inquiry.destinationUtm.loc.getY + 10,
+              inquiry.destinationUtm.loc.getY - 10
             )
             val newStall = ParkingStall.lastResortStall(boxAroundRequest, new Random(seed))
             ParkingZoneSearch.ParkingZoneSearchResult(newStall, DefaultParkingZone)

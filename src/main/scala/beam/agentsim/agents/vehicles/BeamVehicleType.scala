@@ -32,7 +32,10 @@ case class BeamVehicleType(
   payloadCapacityInKg: Option[Double] = None
 ) {
   def isSharedVehicle: Boolean = id.toString.startsWith("sharedVehicle")
-
+//<<<<<<< HEAD
+//=======
+//
+//>>>>>>> origin/Xuan/Bike-Hourly-Adjustment-Parameter-Based-on-new-develop
   def isCaccEnabled: Boolean = {
     automationLevel >= 3
   }

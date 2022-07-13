@@ -126,11 +126,8 @@ configurations {
 
 configurations.all {
     resolutionStrategy {
-        // we need this in order to get Elki library working fine.
-        force 'net.jafama:jafama:2.3.2'
-        // we need this in order to get Elki library working fine.
+//       we need this in order to get Elki library working fine.
         force 'it.unimi.dsi:fastutil:8.5.4'
-
         force 'org.apache.logging.log4j:log4j-core:2.15.0'
         force 'org.apache.logging.log4j:log4j-api:2.15.0'
     }
@@ -202,7 +199,7 @@ dependencies {
     implementation "com.typesafe.scala-logging:scala-logging_${scalaBinaryVersion}:3.9.0"
     implementation "org.slf4j:log4j-over-slf4j:${slf4jVersion}"
 
-    implementation(group: 'com.github.LBNL-UCB-STI', name: 'r5', version: 'v4.5.3_linkRadiusMeters') {
+    implementation(group: 'com.github.LBNL-UCB-STI', name: 'r5', version: 'v4.5.3_unconstrainedSpatialSearch') {
         exclude group: 'ch.qos.logback', module: 'logback-classic'
         exclude group: 'org.slf4j', module: 'slf4j-simple'
     }
@@ -542,7 +539,7 @@ def jfr = ["-XX:+UnlockCommercialFeatures", "-XX:+FlightRecorder",
 // On the running machine there should be file /usr/lib/jvm/java-8-oracle/jre/lib/jfr/profile_heap_exception.jfc  with content from
 // https://pastebin.com/N3uuUfPz - it's Java Mission Control with metrics about heap allocation and details about exceptions
 def jfrWithMem = ["-XX:+UnlockCommercialFeatures", "-XX:+UnlockDiagnosticVMOptions", "-XX:+DebugNonSafepoints",
-                  "-XX:StartFlightRecording=delay=2s,duration=60m,name=mem_ex,filename=recording.jfr,settings=profile_heap_exception",
+                  "-XX:StartFlightRecording=delay=3h,duration=3h,name=mem_ex,filename=recording.jfr,settings=profile_heap_exception",
                   "-XX:+FlightRecorder", "-XX:FlightRecorderOptions=disk=true,maxage=10h,dumponexit=true,loglevel=info"]
 
 

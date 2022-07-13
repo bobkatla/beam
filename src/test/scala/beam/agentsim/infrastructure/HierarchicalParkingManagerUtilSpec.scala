@@ -56,6 +56,7 @@ class HierarchicalParkingManagerUtilSpec extends AnyWordSpec with Matchers {
           val (singles, collapsed) = groupedByTazZone.partition(_.size == 1)
           singles should have size 7
           collapsed.map(_.map(_.toString)) should contain theSameElementsAs Seq(Set("4", "7"), Set("10", "11"))
+//>>>>>>> develop
         }
       }
     }

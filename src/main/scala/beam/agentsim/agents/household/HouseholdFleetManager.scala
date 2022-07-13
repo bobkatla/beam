@@ -10,12 +10,17 @@ import beam.agentsim.agents.InitializeTrigger
 import beam.agentsim.agents.household.HouseholdActor._
 import beam.agentsim.agents.household.HouseholdFleetManager.ResolvedParkingResponses
 import beam.agentsim.agents.modalbehaviors.DrivesVehicle.ActualVehicle
+//<<<<<<< HEAD
+import beam.agentsim.agents.planning.BeamPlan.atHome
+import beam.agentsim.agents.vehicles.BeamVehicle
 import beam.agentsim.agents.vehicles.{BeamVehicle, VehicleManager}
+//>>>>>>> develop
 import beam.agentsim.events.SpaceTime
 import beam.agentsim.infrastructure.{ParkingInquiry, ParkingInquiryResponse}
 import beam.agentsim.scheduler.BeamAgentScheduler.CompletionNotice
 import beam.agentsim.scheduler.HasTriggerId
 import beam.agentsim.scheduler.Trigger.TriggerWithId
+import beam.sim.common.GeoUtils
 import beam.sim.config.BeamConfig.Beam.Debug
 import beam.utils.logging.pattern.ask
 import beam.utils.logging.{ExponentialLazyLogging, LoggingMessageActor}
@@ -28,6 +33,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class HouseholdFleetManager(
   parkingManager: ActorRef,
   vehicles: Map[Id[BeamVehicle], BeamVehicle],
+//  geo: GeoUtils,
   homeCoord: Coord,
   maybeEmergencyHouseholdVehicleGenerator: Option[EmergencyHouseholdVehicleGenerator],
   whoDrivesThisVehicle: Map[Id[BeamVehicle], Id[Person]], // so far only freight module is using this collection
@@ -59,6 +65,7 @@ class HouseholdFleetManager(
 
     case TriggerWithId(InitializeTrigger(_), triggerId) =>
       triggerSender = Some(sender())
+
       val listOfFutures: List[Future[(Id[BeamVehicle], ParkingInquiryResponse)]] = vehicles.toList.map {
         case (id, veh) =>
           (parkingManager ? ParkingInquiry.init(
@@ -108,7 +115,6 @@ class HouseholdFleetManager(
 
     case GetVehicleTypes(triggerId) =>
       sender() ! VehicleTypesResponse(vehicles.values.map(_.beamVehicleType).toSet, triggerId)
-
     case inquiry @ MobilityStatusInquiry(personId, _, _, requireVehicleCategoryAvailable, triggerId) =>
       val availableVehicleMaybe: Option[BeamVehicle] = requireVehicleCategoryAvailable match {
         case Some(_) if personId.toString.contains("freight") =>

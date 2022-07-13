@@ -67,6 +67,7 @@ class ParkingStatsCollector(beamServices: BeamServices) extends GraphAnalysis wi
              start tracking the departing person
        */
       case modeChoiceEvent: ModeChoiceEvent =>
+
         if (BeamMode.isCar(modeChoiceEvent.mode) || modeChoiceEvent.mode == BeamMode.DRIVE_TRANSIT.value) {
           // start tracking the person for outbound stats
           if (!personOutboundParkingStatsTracker.contains(modeChoiceEvent.personId.toString)) {
